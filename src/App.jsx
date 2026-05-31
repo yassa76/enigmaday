@@ -16,34 +16,41 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ── Auth listener ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) loadProfile(session.user.id);
-      setLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) loadProfile(session.user.id);
-      else { setProfile(null); }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // ── Load today's enigma ────────────────────────────────────────────────────
-  useEffect(() => {
-    loadTodayEnigma();
-  }, []);
-
   const loadProfile = async (userId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .single();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data);
+    }
   };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        await loadProfile(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session) {
+        await loadProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    loadTodayEnigma();
+  }, []);
 
   const loadTodayEnigma = async () => {
     const today = new Date().toISOString().split("T")[0];
@@ -60,10 +67,10 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // ── Auth actions ──────────────────────────────────────────────────────────
   const handleLogin = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return showToast(error.message, "error");
+    await loadProfile(data.user.id);
     showToast("Bentornato! 🎉", "success");
     setPage("home");
   };
@@ -74,17 +81,14 @@ export default function App() {
       options: { data: { nome } }
     });
     if (error) return showToast(error.message, "error");
-    // Aggiorna il profilo con le preferenze
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("profiles").update({ nome, preferenze }).eq("id", user.id);
-    }
     showToast("Account creato! Controlla la tua email per confermare. 📧", "success");
     setPage("login");
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setProfile(null);
+    setSession(null);
     setPage("home");
     showToast("Arrivederci! 👋", "info");
   };
@@ -99,7 +103,6 @@ export default function App() {
     showToast("Profilo aggiornato ✅", "success");
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
       <div style={{ fontSize:56 }}>🧩</div>
