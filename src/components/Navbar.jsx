@@ -1,6 +1,9 @@
 const COLORS = { card:"#1A1A2E", primary:"#FF6B35", accent:"#FFE66D", muted:"#8888AA", text:"#F0F0F0" };
 
 export default function Navbar({ profile, session, onLogout, onNav, isAdmin }) {
+  console.log("PROFILE:", profile);
+  console.log("ISADMIN:", isAdmin);
+  
   return (
     <nav style={{ background:COLORS.card, borderBottom:`3px solid ${COLORS.primary}`, padding:"0 24px", height:70, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
       <div onClick={() => onNav("home")} style={{ cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
