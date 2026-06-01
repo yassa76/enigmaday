@@ -153,7 +153,7 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
   };
 
   const loadPrevAttempt = async () => {
-    const { data } = await supabase.from("tentativi").select("*").eq("enigma_id", enigma.id).eq("user_id", session.user.id).single();
+    const { data } = await supabase.from("tentativi").select("*").eq("enigma_id", enigma.id).eq("user_id", session.user.id).maybeSingle();
     if (data) {
       setState(data.corretto ? "correct" : "wrong");
       if (data.tempo_usato) setTempoUsato(data.tempo_usato);
