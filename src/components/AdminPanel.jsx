@@ -212,15 +212,6 @@ export default function AdminPanel({ showToast }) {
     setTentativi(t || []);
     setLoading(false);
   };
-/*
-  const addEnigma = async (form) => {
-    if (!form.testo || !form.soluzione) return showToast("Compila testo e soluzione!", "error");
-    const { error } = await supabase.from("enigmi").insert(form);
-    if (error) return showToast(error.message, "error");
-    showToast("Enigma aggiunto ✅", "success");
-    closeModal(); loadAll();
-  };
-*/
 
 const addEnigma = async (form) => {
     console.log("addEnigma chiamato", form);
