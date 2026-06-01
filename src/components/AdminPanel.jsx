@@ -8,9 +8,9 @@ const COLORS = {
 };
 const CAT_COLORS = {
   Indovinello:"#FF6B35", Logica:"#4ECDC4", Rebus:"#A855F7",
-  Matematica:"#FFE66D", Quiz:"#EC4899", "Indovina il film":"#38BDF8"
+  Matematica:"#FFE66D", Quiz:"#EC4899", "Indovina il film":"#38BDF8", Ghigliottina:"#F43F5E"
 };
-const CATEGORIE = ["Indovinello","Logica","Rebus","Matematica","Quiz","Indovina il film"];
+const CATEGORIE = ["Indovinello","Logica","Rebus","Matematica","Quiz","Indovina il film","Ghigliottina"];
 const DIFF = ["", "🧩", "🧩🧩", "🧩🧩🧩"];
 const DIFF_LABEL = ["", "Facile", "Medio", "Difficile"];
 
