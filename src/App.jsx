@@ -55,12 +55,18 @@ export default function App() {
   };
 
   const loadConfigs = async () => {
-    const [{ data: d }, { data: c }] = await Promise.all([
-      supabase.from("difficolta_config").select("*"),
-      supabase.from("categorie_config").select("*"),
-    ]);
-    setDiffConfig(d || []);
-    setCatConfig(c || []);
+    try {
+      const [{ data: d, error: e1 }, { data: c, error: e2 }] = await Promise.all([
+        supabase.from("difficolta_config").select("*"),
+        supabase.from("categorie_config").select("*"),
+      ]);
+      console.log("difficolta_config:", d, e1);
+      console.log("categorie_config:", c, e2);
+      setDiffConfig(d || []);
+      setCatConfig(c || []);
+    } catch(err) {
+      console.error("loadConfigs error:", err);
+    }
   };
 
   const showToast = (msg, type = "info") => {
