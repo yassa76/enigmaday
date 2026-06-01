@@ -24,25 +24,6 @@ export default function App() {
     if (data) setProfile(data);
   };
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session) await loadProfile(session.user.id);
-      setLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session) await loadProfile(session.user.id);
-      else setProfile(null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    loadEnigmi();
-    loadConfigs();
-  }, []);
-
   const loadEnigmi = async () => {
     const today = new Date().toISOString().split("T")[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -56,18 +37,34 @@ export default function App() {
 
   const loadConfigs = async () => {
     try {
-      const [{ data: d, error: e1 }, { data: c, error: e2 }] = await Promise.all([
+      const [{ data: d }, { data: c }] = await Promise.all([
         supabase.from("difficolta_config").select("*"),
         supabase.from("categorie_config").select("*"),
       ]);
-      console.log("difficolta_config:", d, e1);
-      console.log("categorie_config:", c, e2);
       setDiffConfig(d || []);
       setCatConfig(c || []);
     } catch(err) {
       console.error("loadConfigs error:", err);
     }
   };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      if (session) await loadProfile(session.user.id);
+      await loadEnigmi();
+      await loadConfigs();
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session) await loadProfile(session.user.id);
+      else setProfile(null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const showToast = (msg, type = "info") => {
     setToast({ msg, type });
@@ -111,7 +108,6 @@ export default function App() {
   );
 
   const isAdmin = profile?.ruolo === "admin";
-  console.log("PROFILE:", profile, "ISADMIN:", isAdmin, "PAGE:", page);
 
   return (
     <>
