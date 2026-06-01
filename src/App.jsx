@@ -47,8 +47,8 @@ export default function App() {
     const today = new Date().toISOString().split("T")[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
     const [{ data: t }, { data: y }] = await Promise.all([
-      supabase.from("enigmi").select("*").eq("data_pub", today).single(),
-      supabase.from("enigmi").select("*").eq("data_pub", yesterday).single(),
+      supabase.from("enigmi").select("*").eq("data_pub", today).maybeSingle(),
+      supabase.from("enigmi").select("*").eq("data_pub", yesterday).maybeSingle(),
     ]);
     setTodayEnigma(t || null);
     setYesterdayEnigma(y || null);
