@@ -50,11 +50,16 @@ export default function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session) await loadProfile(session.user.id);
-      await loadEnigmi();
-      await loadConfigs();
-      setLoading(false);
+      try {
+        setSession(session);
+        if (session) await loadProfile(session.user.id);
+        await loadEnigmi();
+        await loadConfigs();
+      } catch(e) {
+        console.error("Init error:", e);
+      } finally {
+        setLoading(false);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -100,10 +105,19 @@ export default function App() {
     showToast("Profilo aggiornato ✅", "success");
   };
 
+  // Schermata di caricamento iniziale
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
       <div style={{ fontSize:56 }}>🧩</div>
       <div style={{ fontFamily:"'Fredoka One', cursive", fontSize:28, color:"#FF6B35" }}>EnigmaDay</div>
+    </div>
+  );
+
+  // Sessione presente ma profilo non ancora caricato — aspetta
+  if (session && !profile) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
+      <div style={{ fontSize:56 }}>🧩</div>
+      <div style={{ fontFamily:"'Fredoka One', cursive", fontSize:28, color:"#FF6B35" }}>Caricamento profilo...</div>
     </div>
   );
 
