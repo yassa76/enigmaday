@@ -142,7 +142,7 @@ export default function App() {
       <Toast toast={toast} />
       <Navbar profile={profile} session={session} onLogout={handleLogout} onNav={setPage} isAdmin={isAdmin} />
 
-      <div style={{ maxWidth:900, margin:"0 auto", padding:"28px 16px", minHeight:"calc(100vh - 70px)" }}>
+      <div style={{ maxWidth: page === "admin" ? 1400 : 900, margin:"0 auto", padding:"28px 24px", minHeight:"calc(100vh - 70px)" }}>
         {page === "home" &&
           <HomePage
             enigma={todayEnigma}
