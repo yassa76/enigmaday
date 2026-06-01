@@ -3,8 +3,8 @@ import { supabase } from "./lib/supabase";
 import Navbar from "./components/Navbar";
 import Toast from "./components/Toast";
 import HomePage from "./components/HomePage";
-import LoginPage from "./components/LoginPage";
-import RegisterPage from "./components/RegisterPage";
+import { LoginPage } from "./components/AuthPages";
+import { RegisterPage } from "./components/AuthPages";
 import ProfilePage from "./components/ProfilePage";
 import AdminPanel from "./components/AdminPanel";
 
@@ -13,53 +13,54 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [todayEnigma, setTodayEnigma] = useState(null);
+  const [yesterdayEnigma, setYesterdayEnigma] = useState(null);
+  const [diffConfig, setDiffConfig] = useState([]);
+  const [catConfig, setCatConfig] = useState([]);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    if (data) {
-      setProfile(data);
-    }
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (data) setProfile(data);
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      if (session) {
-        await loadProfile(session.user.id);
-      }
+      if (session) await loadProfile(session.user.id);
       setLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      if (session) {
-        await loadProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
+      if (session) await loadProfile(session.user.id);
+      else setProfile(null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    loadTodayEnigma();
+    loadEnigmi();
+    loadConfigs();
   }, []);
 
-  const loadTodayEnigma = async () => {
+  const loadEnigmi = async () => {
     const today = new Date().toISOString().split("T")[0];
-    const { data } = await supabase
-      .from("enigmi")
-      .select("*")
-      .eq("data_pub", today)
-      .single();
-    setTodayEnigma(data || null);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const [{ data: t }, { data: y }] = await Promise.all([
+      supabase.from("enigmi").select("*").eq("data_pub", today).single(),
+      supabase.from("enigmi").select("*").eq("data_pub", yesterday).single(),
+    ]);
+    setTodayEnigma(t || null);
+    setYesterdayEnigma(y || null);
+  };
+
+  const loadConfigs = async () => {
+    const [{ data: d }, { data: c }] = await Promise.all([
+      supabase.from("difficolta_config").select("*"),
+      supabase.from("categorie_config").select("*"),
+    ]);
+    setDiffConfig(d || []);
+    setCatConfig(c || []);
   };
 
   const showToast = (msg, type = "info") => {
@@ -76,28 +77,21 @@ export default function App() {
   };
 
   const handleRegister = async (nome, email, password, preferenze) => {
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { nome } }
-    });
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { nome } } });
     if (error) return showToast(error.message, "error");
-    showToast("Account creato! Controlla la tua email per confermare. 📧", "success");
+    showToast("Account creato! Controlla la tua email 📧", "success");
     setPage("login");
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setProfile(null);
-    setSession(null);
+    setProfile(null); setSession(null);
     setPage("home");
     showToast("Arrivederci! 👋", "info");
   };
 
   const handleUpdateProfile = async (updates) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", session.user.id);
+    const { error } = await supabase.from("profiles").update(updates).eq("id", session.user.id);
     if (error) return showToast("Errore nel salvataggio", "error");
     setProfile(p => ({ ...p, ...updates }));
     showToast("Profilo aggiornato ✅", "success");
@@ -146,24 +140,22 @@ export default function App() {
         {page === "home" &&
           <HomePage
             enigma={todayEnigma}
+            yesterdayEnigma={yesterdayEnigma}
             session={session}
             profile={profile}
             showToast={showToast}
             onLoginRequest={() => setPage("login")}
+            diffConfig={diffConfig}
+            catConfig={catConfig}
           />
         }
         {page === "login" && <LoginPage onLogin={handleLogin} onRegister={() => setPage("register")} />}
         {page === "register" && <RegisterPage onRegister={handleRegister} onLogin={() => setPage("login")} />}
         {page === "profile" && session &&
-          <ProfilePage
-            profile={profile}
-            session={session}
-            onUpdate={handleUpdateProfile}
-            showToast={showToast}
-          />
+          <ProfilePage profile={profile} session={session} onUpdate={handleUpdateProfile} showToast={showToast} />
         }
         {page === "admin" && isAdmin &&
-          <AdminPanel showToast={showToast} />
+          <AdminPanel showToast={showToast} onConfigUpdate={loadConfigs} />
         }
       </div>
     </>
