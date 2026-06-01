@@ -156,12 +156,23 @@ function EnigmaForm({ initial, onSave, onCancel, showToast }) {
               <button onClick={removeMedia} style={{ position:"absolute", top:8, right:8, background:COLORS.error, border:"none", borderRadius:"50%", width:28, height:28, color:"#fff", cursor:"pointer", fontSize:14 }}>✕</button>
             </div>
           ) : (
-            <label style={{ display:"block", border:`2px dashed ${COLORS.muted}44`, borderRadius:12, padding:"24px", textAlign:"center", cursor:"pointer", color:COLORS.muted, transition:"all .2s" }}
+            <label
+              style={{ display:"block", border:`2px dashed ${COLORS.muted}44`, borderRadius:12, padding:"24px", textAlign:"center", cursor:"pointer", color:COLORS.muted, transition:"all .2s" }}
               onMouseEnter={e=>{e.currentTarget.style.borderColor=COLORS.primary;e.currentTarget.style.color=COLORS.primary;}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=COLORS.muted+"44";e.currentTarget.style.color=COLORS.muted;}}>
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=COLORS.muted+"44";e.currentTarget.style.color=COLORS.muted;}}
+              onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=COLORS.primary;e.currentTarget.style.color=COLORS.primary;e.currentTarget.style.background=COLORS.primary+"11";}}
+              onDragLeave={e=>{e.currentTarget.style.borderColor=COLORS.muted+"44";e.currentTarget.style.color=COLORS.muted;e.currentTarget.style.background="transparent";}}
+              onDrop={e=>{
+                e.preventDefault();
+                e.currentTarget.style.borderColor=COLORS.muted+"44";
+                e.currentTarget.style.color=COLORS.muted;
+                e.currentTarget.style.background="transparent";
+                const file = e.dataTransfer.files[0];
+                if (file) handleFile({ target:{ files:[file] } });
+              }}>
               <input type="file" accept="image/*,video/*" onChange={handleFile} style={{ display:"none" }} />
               <div style={{ fontSize:28, marginBottom:8 }}>🖼️</div>
-              {uploading ? "⏳ Caricamento in corso..." : "Clicca per caricare foto o video"}
+              {uploading ? "⏳ Caricamento in corso..." : "Trascina qui o clicca per caricare"}
             </label>
           )}
         </div>
