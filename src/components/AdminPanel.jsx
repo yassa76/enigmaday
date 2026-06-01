@@ -212,7 +212,7 @@ export default function AdminPanel({ showToast }) {
     setTentativi(t || []);
     setLoading(false);
   };
-
+/*
   const addEnigma = async (form) => {
     if (!form.testo || !form.soluzione) return showToast("Compila testo e soluzione!", "error");
     const { error } = await supabase.from("enigmi").insert(form);
@@ -220,7 +220,19 @@ export default function AdminPanel({ showToast }) {
     showToast("Enigma aggiunto ✅", "success");
     closeModal(); loadAll();
   };
+*/
 
+const addEnigma = async (form) => {
+    console.log("addEnigma chiamato", form);
+    if (!form.testo || !form.soluzione) return showToast("Compila testo e soluzione!", "error");
+    const { data, error } = await supabase.from("enigmi").insert(form).select();
+    console.log("risultato insert:", data, error);
+    if (error) return showToast(error.message, "error");
+    showToast("Enigma aggiunto ✅", "success");
+    closeModal(); loadAll();
+  };
+
+  
   const updateEnigma = async (form) => {
     const { error } = await supabase.from("enigmi").update(form).eq("id", form.id);
     if (error) return showToast(error.message, "error");
