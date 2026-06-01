@@ -111,6 +111,7 @@ export default function App() {
   );
 
   const isAdmin = profile?.ruolo === "admin";
+  console.log("PROFILE:", profile, "ISADMIN:", isAdmin, "PAGE:", page);
 
   return (
     <>
