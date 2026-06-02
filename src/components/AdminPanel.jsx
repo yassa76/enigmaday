@@ -178,18 +178,23 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data:e },{ data:p },{ data:s },{ data:t },{ data:dc },{ data:cc }] = await Promise.all([
-      supabase.from("enigmi").select("*"),
-      supabase.from("profiles").select("*"),
-      supabase.from("enigmi_stats").select("*"),
-      supabase.from("tentativi").select("*"),
-      supabase.from("difficolta_config").select("*").order("livello"),
-      supabase.from("categorie_config").select("*"),
-    ]);
-    setEnigmi(e||[]); setProfiles((p||[]).filter(u=>u.ruolo!=="admin"));
-    const sm={}; (s||[]).forEach(r=>{sm[r.id]=r.solutori;}); setStats(sm);
-    setTentativi(t||[]); setDiffConfig(dc||[]); setCatConfig(cc||[]);
-    setLoading(false);
+    try {
+      const [{ data:e },{ data:p },{ data:s },{ data:t },{ data:dc },{ data:cc }] = await Promise.all([
+        supabase.from("enigmi").select("*"),
+        supabase.from("profiles").select("*"),
+        supabase.from("enigmi_stats").select("*"),
+        supabase.from("tentativi").select("*"),
+        supabase.from("difficolta_config").select("*").order("livello"),
+        supabase.from("categorie_config").select("*"),
+      ]);
+      setEnigmi(e||[]); setProfiles((p||[]).filter(u=>u.ruolo!=="admin"));
+      const sm={}; (s||[]).forEach(r=>{sm[r.id]=r.solutori;}); setStats(sm);
+      setTentativi(t||[]); setDiffConfig(dc||[]); setCatConfig(cc||[]);
+    } catch(err) {
+      console.error("loadAll error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addEnigma = async (form) => {
