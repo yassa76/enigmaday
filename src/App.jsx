@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(() => sessionStorage.getItem("page") || "home");
   const [session, setSession] = useState(undefined);
   const [profile, setProfile] = useState(null);
   const [todayEnigma, setTodayEnigma] = useState(null);
@@ -33,9 +33,14 @@ export default function App() {
   const [catConfig, setCatConfig] = useState([]);
   const [toast, setToast] = useState(null);
 
+  const navigate = (p) => {
+    sessionStorage.setItem("page", p);
+    setPage(p);
+  };
+
   const loadProfile = async (userId) => {
     try {
-      const { data, error } = await Promise.race([
+      const { data } = await Promise.race([
         supabase.from("profiles").select("*").eq("id", userId).limit(1),
         new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
       ]);
@@ -101,21 +106,21 @@ export default function App() {
     await loadProfile(data.user.id);
     setSession(data.session);
     showToast("Bentornato! 🎉", "success");
-    setPage("home");
+    navigate("home");
   };
 
   const handleRegister = async (nome, email, password, preferenze) => {
     const { error } = await supabase.auth.signUp({ email, password, options: { data: { nome } } });
     if (error) return showToast(error.message, "error");
     showToast("Account creato! Controlla la tua email 📧", "success");
-    setPage("login");
+    navigate("login");
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
-    setPage("home");
+    navigate("home");
     showToast("Arrivederci! 👋", "info");
   };
 
@@ -141,6 +146,9 @@ export default function App() {
   );
 
   const isAdmin = profile?.ruolo === "admin";
+
+  // Se la pagina salvata richiede login ma non sei loggato, vai alla home
+  const safePage = (!session && (page === "profile" || page === "admin")) ? "home" : page;
 
   return (
     <ErrorBoundary>
@@ -170,28 +178,28 @@ export default function App() {
       `}</style>
 
       <Toast toast={toast} />
-      <Navbar profile={profile} session={session} onLogout={handleLogout} onNav={setPage} isAdmin={isAdmin} />
+      <Navbar profile={profile} session={session} onLogout={handleLogout} onNav={navigate} isAdmin={isAdmin} />
 
-      <div style={{ maxWidth: page === "admin" ? 1400 : 900, margin:"0 auto", padding:"28px 24px", minHeight:"calc(100vh - 70px)" }}>
+      <div style={{ maxWidth: safePage === "admin" ? 1400 : 900, margin:"0 auto", padding:"28px 24px", minHeight:"calc(100vh - 70px)" }}>
         <ErrorBoundary>
-          {page === "home" &&
+          {safePage === "home" &&
             <HomePage
               enigma={todayEnigma}
               yesterdayEnigma={yesterdayEnigma}
               session={session}
               profile={profile}
               showToast={showToast}
-              onLoginRequest={() => setPage("login")}
+              onLoginRequest={() => navigate("login")}
               diffConfig={diffConfig}
               catConfig={catConfig}
             />
           }
-          {page === "login" && <LoginPage onLogin={handleLogin} onRegister={() => setPage("register")} />}
-          {page === "register" && <RegisterPage onRegister={handleRegister} onLogin={() => setPage("login")} />}
-          {page === "profile" && session &&
+          {safePage === "login" && <LoginPage onLogin={handleLogin} onRegister={() => navigate("register")} />}
+          {safePage === "register" && <RegisterPage onRegister={handleRegister} onLogin={() => navigate("login")} />}
+          {safePage === "profile" && session &&
             <ProfilePage profile={profile} session={session} onUpdate={handleUpdateProfile} showToast={showToast} />
           }
-          {page === "admin" && isAdmin &&
+          {safePage === "admin" && isAdmin &&
             <AdminPanel showToast={showToast} onConfigUpdate={loadConfigs} />
           }
         </ErrorBoundary>
