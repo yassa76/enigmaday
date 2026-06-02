@@ -73,7 +73,14 @@ export default function App() {
       } else {
         setSession(null);
       }
+    }).catch(() => {
+      setSession(null);
     });
+
+    // Timeout di sicurezza — se dopo 3 secondi session è ancora undefined, forza null
+    setTimeout(() => {
+      setSession(prev => prev === undefined ? null : prev);
+    }, 3000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       if (_event === "INITIAL_SESSION") return;
