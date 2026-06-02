@@ -271,7 +271,12 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
           {session ? "Enigma del Giorno 🧩" : "Enigma di Ieri 🧩"}
         </h1>
         <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:12,flexWrap:"wrap",alignItems:"center"}}>
-          <span className="tag" style={{background:catColor,color:"#000"}}>{displayEnigma.categoria}</span>
+          <span className="tag" style={{background:catColor, color:"#000", cursor: istruzioni?.istruzioni ? "pointer" : "default"}}
+          onClick={() => { if (istruzioni?.istruzioni) setShowInstruzioni(true); }}
+          title={istruzioni?.istruzioni ? "Clicca per le istruzioni" : ""}
+        >
+          {displayEnigma.categoria}
+        </span>
           <span className="tag" style={{background:COLORS.cardLight,color:COLORS.text,border:`1px solid ${COLORS.muted}`}}>{DIFF_LABELS[displayEnigma.difficolta]}</span>
           <span className="tag" style={{background:COLORS.cardLight,color:COLORS.secondary,border:`1px solid ${COLORS.secondary}`}}>
             👥 {session ? solutori : yesterdaySolutori} risolto
