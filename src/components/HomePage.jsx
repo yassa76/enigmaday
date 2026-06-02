@@ -356,26 +356,33 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
       )}
 
       {/* Campione di oggi */}
-      {campione && session && (
-        <div className="card fade-in" style={{marginBottom:16,background:`linear-gradient(135deg,#FFD70018,${COLORS.card})`,border:"2px solid #FFD70044",display:"flex",alignItems:"center",gap:16,cursor:"pointer"}}
-          onClick={()=>onNav&&onNav("leaderboard")}>
-          <div style={{fontSize:32}}>⚡</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#FFD700",letterSpacing:1,marginBottom:2}}>PIÙ VELOCE DI OGGI</div>
-            <div style={{fontWeight:800,fontSize:16}}>
-              {campione.display_name}
-              {session?.user?.id===campione.id&&<span style={{fontSize:11,background:COLORS.primary,color:"#fff",padding:"1px 8px",borderRadius:50,marginLeft:8}}>sei tu!</span>}
-            </div>
-            <div style={{fontSize:13,color:COLORS.muted,marginTop:2}}>
-              ha risolto in <strong style={{color:"#FFD700"}}>{formatTime(campione.tempo_usato)}</strong>
-            </div>
-          </div>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:28}}>🥇</div>
-            <div style={{fontSize:11,color:COLORS.muted}}>vedi classifica →</div>
-          </div>
+      <div className="card fade-in" style={{marginBottom:16,background:`linear-gradient(135deg,#FFD70018,${COLORS.card})`,border:"2px solid #FFD70044",display:"flex",alignItems:"center",gap:16,cursor:"pointer"}}
+        onClick={()=>onNav&&onNav("leaderboard")}>
+        <div style={{fontSize:32}}>⚡</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#FFD700",letterSpacing:1,marginBottom:2}}>PIÙ VELOCE DI OGGI</div>
+          {campione ? (
+            <>
+              <div style={{fontWeight:800,fontSize:16}}>
+                {campione.display_name}
+                {session?.user?.id===campione.id&&<span style={{fontSize:11,background:COLORS.primary,color:"#fff",padding:"1px 8px",borderRadius:50,marginLeft:8}}>sei tu!</span>}
+              </div>
+              <div style={{fontSize:13,color:COLORS.muted,marginTop:2}}>
+                ha risolto in <strong style={{color:"#FFD700"}}>{formatTime(campione.tempo_usato)}</strong>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{fontWeight:800,fontSize:16}}>Nessuno ancora!</div>
+              <div style={{fontSize:13,color:COLORS.muted,marginTop:2}}>🚀 Sii il primo a risolvere l'enigma di oggi!</div>
+            </>
+          )}
         </div>
-      )}
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:28}}>{campione?"🥇":"🎯"}</div>
+          <div style={{fontSize:11,color:COLORS.muted}}>vedi classifica →</div>
+        </div>
+      </div>
 
       {/* Bottom row */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
