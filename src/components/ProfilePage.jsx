@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const COLORS = { primary:"#FF6B35", secondary:"#4ECDC4", accent:"#FFE66D", purple:"#A855F7", card:"#1A1A2E", cardLight:"#16213E", text:"#F0F0F0", muted:"#8888AA", success:"#22C55E", error:"#EF4444" };
@@ -6,7 +6,6 @@ const CAT_COLORS = { Indovinello:"#FF6B35", Logica:"#4ECDC4", Rebus:"#A855F7", M
 const DEFAULT_AVATARS = ["🧩","🦊","🐼","🦁","🐸","🦄","🐯","🐧","🦋","🎭","🧠","⚡"];
 const CATEGORIE = ["Indovinello","Logica","Rebus","Matematica","Quiz","Indovina il film","Ghigliottina"];
 
-// ── Definiti FUORI dal componente per evitare re-render che fanno perdere il focus ──
 function ReadOnlyField({ label, value, note, tabIndex }) {
   return (
     <div>
@@ -90,7 +89,7 @@ function CropModal({ imageSrc, onCrop, onCancel }) {
     <div style={{position:"fixed",inset:0,zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.85)",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onCancel();}}>
       <div style={{background:COLORS.card,borderRadius:24,padding:32,maxWidth:380,width:"100%",textAlign:"center"}}>
-        <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,color:COLORS.primary,marginBottom:8}}>Ritaglia foto profilo</h3>
+        <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,color:COLORS.primary,marginBottom:8}}>Foto profilo</h3>
         <p style={{color:COLORS.muted,fontSize:13,marginBottom:20}}>Trascina per posizionare, usa lo slider per zoomare</p>
         <div style={{display:"inline-block",borderRadius:"50%",overflow:"hidden",cursor:"grab",border:`3px solid ${COLORS.primary}`}}>
           <canvas ref={canvasRef} width={SIZE} height={SIZE}
@@ -113,62 +112,16 @@ function CropModal({ imageSrc, onCrop, onCancel }) {
   );
 }
 
-// ── Stato iniziale dal profilo ─────────────────────────────────────────────────
-function getInitialState(profile) {
-  return {
-    nome: profile?.nome || "",
-    cognome: profile?.cognome || "",
-    soprannome: profile?.soprannome || "",
-    dataNascita: profile?.data_nascita || "",
-    citta: profile?.citta || "",
-    prefs: profile?.preferenze || [],
-    newsletter: profile?.newsletter || false,
-    consensoMarketing: profile?.consenso_marketing || false,
-    avatarUrl: profile?.avatar_url || "",
-    selectedEmoji: null,
-  };
-}
-
-export default function ProfilePage({ profile, session, onUpdate, showToast }) {
-  const isGoogleUser = session?.user?.app_metadata?.provider === "google";
-  const googleAvatar = session?.user?.user_metadata?.avatar_url || session?.user?.user_metadata?.picture;
-
-  const [state, setState] = useState(() => getInitialState(profile));
-  const [dirty, setDirty] = useState(false);
-  const [tentativi, setTentativi] = useState([]);
+// Modal avatar (foto + emoji)
+function AvatarModal({ profile, session, onSave, onCancel, showToast }) {
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+  const [selectedEmoji, setSelectedEmoji] = useState(profile?.avatar_emoji || null);
   const [cropSrc, setCropSrc] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [tab, setTab] = useState("stats");
   const fileRef = useRef(null);
 
-  const set = useCallback((key, value) => {
-    setState(prev => ({...prev, [key]: value}));
-    setDirty(true);
-  }, []);
-
-  const displayAvatar = isGoogleUser ? googleAvatar : (state.avatarUrl || null);
-  const displayEmoji = !displayAvatar ? (state.selectedEmoji || null) : null;
-
-  useEffect(() => { loadTentativi(); }, []);
-
-  const loadTentativi = async () => {
-    const { data } = await supabase.from("tentativi").select("*, enigmi(testo,categoria)").eq("user_id", session.user.id).order("created_at",{ascending:false});
-    setTentativi(data || []);
-  };
-
-  const changeTab = (newTab) => {
-    if (dirty && tab !== "stats") {
-      if (!window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvare?")) return;
-      setState(getInitialState(profile));
-      setDirty(false);
-    }
-    setTab(newTab);
-  };
-
-  const handleCancel = () => {
-    setState(getInitialState(profile));
-    setDirty(false);
-  };
+  const displayAvatar = avatarUrl || null;
+  const displayEmoji = !displayAvatar ? selectedEmoji : null;
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -183,9 +136,113 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
     const { error } = await supabase.storage.from("avatars").upload(path, blob, {upsert:true,contentType:"image/jpeg"});
     if (error) { showToast("Errore upload: "+error.message,"error"); setUploading(false); return; }
     const { data:{publicUrl} } = supabase.storage.from("avatars").getPublicUrl(path);
-    set("avatarUrl", publicUrl+"?t="+Date.now());
-    setUploading(false); showToast("Foto aggiornata ✅","success");
+    setAvatarUrl(publicUrl+"?t="+Date.now());
+    setSelectedEmoji(null);
+    setUploading(false); showToast("Foto caricata ✅","success");
   };
+
+  const handleSave = () => {
+    onSave({ avatar_url: avatarUrl, avatar_emoji: selectedEmoji || null });
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.75)",backdropFilter:"blur(4px)",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget)onCancel();}}>
+      <div style={{background:COLORS.card,borderRadius:24,padding:32,maxWidth:440,width:"100%",border:`2px solid ${COLORS.primary}33`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <h3 style={{fontFamily:"'Fredoka One'",fontSize:24,color:COLORS.primary}}>🖼️ Foto profilo</h3>
+          <button onClick={onCancel} style={{background:COLORS.cardLight,border:"none",color:COLORS.text,width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18}}>✕</button>
+        </div>
+
+        {/* Preview */}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:20}}>
+          <AvatarCircle src={displayAvatar} emoji={displayEmoji} nome={profile?.nome} size={100}/>
+        </div>
+
+        {/* Upload foto */}
+        <div style={{marginBottom:20}}>
+          <label style={{fontSize:11,fontWeight:700,color:COLORS.muted,letterSpacing:1,display:"block",marginBottom:8}}>CARICA UNA FOTO</label>
+          <div style={{display:"flex",gap:10}}>
+            <button className="btn btn-primary btn-sm" onClick={()=>fileRef.current?.click()} disabled={uploading}>
+              {uploading?"⏳ Caricamento...":"📷 Scegli foto"}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} style={{display:"none"}}/>
+            {avatarUrl && (
+              <button className="btn btn-ghost btn-sm" onClick={()=>{setAvatarUrl(""); setSelectedEmoji(null);}}>🗑️ Rimuovi</button>
+            )}
+          </div>
+        </div>
+
+        {/* Emoji */}
+        <div style={{marginBottom:24}}>
+          <label style={{fontSize:11,fontWeight:700,color:COLORS.muted,letterSpacing:1,display:"block",marginBottom:8}}>OPPURE SCEGLI UN AVATAR</label>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {DEFAULT_AVATARS.map(emoji=>(
+              <div key={emoji} onClick={()=>{setSelectedEmoji(emoji);setAvatarUrl("");}}
+                style={{width:48,height:48,borderRadius:"50%",background:selectedEmoji===emoji&&!avatarUrl?COLORS.primary+"33":COLORS.cardLight,border:`2px solid ${selectedEmoji===emoji&&!avatarUrl?COLORS.primary:"transparent"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,cursor:"pointer",transition:"all .15s"}}>
+                {emoji}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10}}>
+          <button className="btn btn-primary" style={{flex:1,justifyContent:"center"}} onClick={handleSave}>💾 Salva</button>
+          <button className="btn btn-ghost" style={{flex:1,justifyContent:"center"}} onClick={onCancel}>Annulla</button>
+        </div>
+      </div>
+
+      {cropSrc && <CropModal imageSrc={cropSrc} onCrop={handleCrop} onCancel={()=>setCropSrc(null)}/>}
+    </div>
+  );
+}
+
+function getInitialState(profile) {
+  return {
+    nome: profile?.nome || "",
+    cognome: profile?.cognome || "",
+    soprannome: profile?.soprannome || "",
+    dataNascita: profile?.data_nascita || "",
+    citta: profile?.citta || "",
+    prefs: profile?.preferenze || [],
+    newsletter: profile?.newsletter || false,
+    consensoMarketing: profile?.consenso_marketing || false,
+  };
+}
+
+export default function ProfilePage({ profile, session, onUpdate, showToast }) {
+  const isGoogleUser = session?.user?.app_metadata?.provider === "google";
+  const googleAvatar = session?.user?.user_metadata?.avatar_url || session?.user?.user_metadata?.picture;
+
+  const [state, setState] = useState(() => getInitialState(profile));
+  const [dirty, setDirty] = useState(false);
+  const [tentativi, setTentativi] = useState([]);
+  const [tab, setTab] = useState("stats");
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+
+  // Avatar: Google → foto Google, email → avatar_url o emoji
+  const displayAvatar = isGoogleUser ? googleAvatar : (profile?.avatar_url || null);
+  const displayEmoji = !displayAvatar ? (profile?.avatar_emoji || null) : null;
+
+  const set = (key, value) => { setState(prev=>({...prev,[key]:value})); setDirty(true); };
+
+  useEffect(() => { loadTentativi(); }, []);
+
+  const loadTentativi = async () => {
+    const { data } = await supabase.from("tentativi").select("*, enigmi(testo,categoria)").eq("user_id", session.user.id).order("created_at",{ascending:false});
+    setTentativi(data || []);
+  };
+
+  const changeTab = (newTab) => {
+    if (dirty) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvare?")) return;
+      setState(getInitialState(profile));
+      setDirty(false);
+    }
+    setTab(newTab);
+  };
+
+  const handleCancel = () => { setState(getInitialState(profile)); setDirty(false); };
 
   const saveProfile = async () => {
     if (!state.nome.trim()) return showToast("Il nome è obbligatorio","error");
@@ -199,14 +256,19 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
       preferenze: state.prefs,
       newsletter: state.newsletter,
       consenso_marketing: state.consensoMarketing,
-      avatar_url: isGoogleUser ? "" : state.avatarUrl,
       consenso_data: (state.newsletter || state.consensoMarketing) ? new Date().toISOString() : null,
     });
     setDirty(false);
   };
 
+  const saveAvatar = async (avatarData) => {
+    await onUpdate(avatarData);
+    setShowAvatarModal(false);
+    showToast("Avatar aggiornato ✅","success");
+  };
+
   const togglePref = (c) => {
-    const newPrefs = state.prefs.includes(c) ? state.prefs.filter(x=>x!==c) : [...state.prefs, c];
+    const newPrefs = state.prefs.includes(c) ? state.prefs.filter(x=>x!==c) : [...state.prefs,c];
     set("prefs", newPrefs);
   };
 
@@ -217,8 +279,7 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
     padding:"8px 18px", borderRadius:50, fontWeight:800, cursor:"pointer", fontSize:13, border:"none",
     background: tab===t ? COLORS.primary : COLORS.cardLight,
     color: tab===t ? "#fff" : COLORS.muted,
-    fontFamily:"'Nunito',sans-serif", transition:"all .2s",
-    position:"relative"
+    fontFamily:"'Nunito',sans-serif", transition:"all .2s", position:"relative"
   });
 
   const SaveCancelBar = () => (
@@ -232,7 +293,8 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
     <div className="fade-in">
       {/* Header */}
       <div className="card" style={{marginBottom:20,display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
-        <div style={{position:"relative",cursor:isGoogleUser?"default":"pointer"}} onClick={()=>!isGoogleUser&&changeTab("avatar")}>
+        <div style={{position:"relative",cursor:isGoogleUser?"default":"pointer"}}
+          onClick={()=>!isGoogleUser && setShowAvatarModal(true)}>
           <AvatarCircle src={displayAvatar} emoji={displayEmoji} nome={state.nome} size={80}/>
           {!isGoogleUser && (
             <div style={{position:"absolute",bottom:0,right:0,background:COLORS.primary,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>✏️</div>
@@ -249,15 +311,9 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — no Avatar tab */}
       <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
-        {[
-          ["stats","📊 Statistiche"],
-          ["dati","👤 Dati personali"],
-          ...(!isGoogleUser ? [["avatar","🖼️ Avatar"]] : []),
-          ["preferenze","🎯 Preferenze"],
-          ["privacy","🔒 Privacy"],
-        ].map(([t,label])=>(
+        {[["stats","📊 Statistiche"],["dati","👤 Dati personali"],["preferenze","🎯 Preferenze"],["privacy","🔒 Privacy"]].map(([t,label])=>(
           <button key={t} style={tabStyle(t)} onClick={()=>changeTab(t)}>
             {label}
             {dirty && tab===t && <span style={{position:"absolute",top:2,right:6,width:6,height:6,borderRadius:"50%",background:COLORS.accent}}/>}
@@ -329,38 +385,6 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
         </div>
       )}
 
-      {/* AVATAR */}
-      {tab==="avatar" && !isGoogleUser && (
-        <div className="fade-in">
-          <div className="card" style={{marginBottom:16}}>
-            <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:16}}>🖼️ Foto profilo</h3>
-            <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:24}}>
-              <AvatarCircle src={displayAvatar} emoji={displayEmoji} nome={state.nome} size={100}/>
-              <div>
-                <button className="btn btn-primary btn-sm" onClick={()=>fileRef.current?.click()} disabled={uploading} tabIndex={1}>
-                  {uploading?"⏳ Caricamento...":"📷 Carica una foto"}
-                </button>
-                <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} style={{display:"none"}}/>
-                {state.avatarUrl && (
-                  <button className="btn btn-ghost btn-sm" style={{marginLeft:8}} onClick={()=>set("avatarUrl","")} tabIndex={2}>🗑️ Rimuovi</button>
-                )}
-              </div>
-            </div>
-            <h4 style={{fontWeight:700,color:COLORS.muted,fontSize:13,letterSpacing:1,marginBottom:12}}>OPPURE SCEGLI UN AVATAR</h4>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              {DEFAULT_AVATARS.map((emoji,i)=>(
-                <div key={emoji} onClick={()=>{set("selectedEmoji",emoji);set("avatarUrl","");}}
-                  tabIndex={3+i}
-                  style={{width:52,height:52,borderRadius:"50%",background:state.selectedEmoji===emoji&&!state.avatarUrl?COLORS.primary+"33":COLORS.cardLight,border:`2px solid ${state.selectedEmoji===emoji&&!state.avatarUrl?COLORS.primary:"transparent"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,cursor:"pointer",transition:"all .15s"}}>
-                  {emoji}
-                </div>
-              ))}
-            </div>
-          </div>
-          <SaveCancelBar/>
-        </div>
-      )}
-
       {/* PREFERENZE */}
       {tab==="preferenze" && (
         <div className="fade-in">
@@ -419,7 +443,16 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
         </div>
       )}
 
-      {cropSrc && <CropModal imageSrc={cropSrc} onCrop={handleCrop} onCancel={()=>setCropSrc(null)}/>}
+      {/* Modal Avatar */}
+      {showAvatarModal && (
+        <AvatarModal
+          profile={profile}
+          session={session}
+          onSave={saveAvatar}
+          onCancel={()=>setShowAvatarModal(false)}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }
