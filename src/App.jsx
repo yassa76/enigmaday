@@ -90,10 +90,15 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       console.log("onAuthStateChange:", _event, sess);
-      if (_event === "INITIAL_SESSION") return;
-      setSession(sess);
-      if (sess) await loadProfile(sess.user.id);
-      else setProfile(null);
+      if (_event === "INITIAL_SESSION") {
+  setSession(sess);
+  if (sess) await loadProfile(sess.user.id);
+  else setSession(null);
+  return;
+}
+setSession(sess);
+if (sess) await loadProfile(sess.user.id);
+else setProfile(null);
     });
 
     return () => subscription.unsubscribe();
