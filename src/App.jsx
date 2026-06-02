@@ -10,14 +10,13 @@ import AdminPanel from "./components/AdminPanel";
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(undefined); // undefined = non ancora inizializzato
   const [profile, setProfile] = useState(null);
   const [todayEnigma, setTodayEnigma] = useState(null);
   const [yesterdayEnigma, setYesterdayEnigma] = useState(null);
   const [diffConfig, setDiffConfig] = useState([]);
   const [catConfig, setCatConfig] = useState([]);
   const [toast, setToast] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
@@ -49,26 +48,18 @@ export default function App() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      try {
-        setSession(session);
-        if (session) await loadProfile(session.user.id);
-        await loadEnigmi();
-        await loadConfigs();
-      } catch(e) {
-        console.error("Init error:", e);
-      } finally {
-        setLoading(false);
-      }
-    });
+    // Carica enigmi e config subito, indipendentemente dalla sessione
+    loadEnigmi();
+    loadConfigs();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (_event === 'INITIAL_SESSION') return;
-      setLoading(true);
-      setSession(session);
-      if (session) await loadProfile(session.user.id);
-      else setProfile(null);
-      setLoading(false);
+    // Usa SOLO onAuthStateChange per gestire la sessione
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      setSession(sess); // null o oggetto sessione
+      if (sess) {
+        await loadProfile(sess.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -82,7 +73,6 @@ export default function App() {
   const handleLogin = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return showToast(error.message, "error");
-    await loadProfile(data.user.id);
     showToast("Bentornato! 🎉", "success");
     setPage("home");
   };
@@ -96,7 +86,6 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setProfile(null); setSession(null);
     setPage("home");
     showToast("Arrivederci! 👋", "info");
   };
@@ -108,19 +97,19 @@ export default function App() {
     showToast("Profilo aggiornato ✅", "success");
   };
 
-  // Schermata di caricamento iniziale
-  if (loading) return (
+  // undefined = Supabase non ha ancora risposto, mostra loading
+  if (session === undefined) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
       <div style={{ fontSize:56 }}>🧩</div>
       <div style={{ fontFamily:"'Fredoka One', cursive", fontSize:28, color:"#FF6B35" }}>EnigmaDay</div>
     </div>
   );
 
-  // Sessione presente ma profilo non ancora caricato — aspetta
+  // Sessione presente ma profilo non ancora caricato
   if (session && !profile) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
       <div style={{ fontSize:56 }}>🧩</div>
-      <div style={{ fontFamily:"'Fredoka One', cursive", fontSize:28, color:"#FF6B35" }}>Caricamento profilo...</div>
+      <div style={{ fontFamily:"'Fredoka One', cursive", fontSize:28, color:"#FF6B35" }}>EnigmaDay</div>
     </div>
   );
 
