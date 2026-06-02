@@ -80,7 +80,7 @@ function EnigmaForm({ initial, onSave, onCancel, showToast }) {
   return (
     <div>
       <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:20,color:COLORS.primary}}>
-        {initial?"✏️ Modifica Enigma":"➕ Nuovo Enigma"}
+        {initial?.id ? "✏️ Modifica Enigma" : "➕ Nuovo Enigma"}
       </h3>
       <div style={{display:"grid",gap:14}}>
         <div>
@@ -151,7 +151,7 @@ function EnigmaForm({ initial, onSave, onCancel, showToast }) {
         </div>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
-        <button className="btn btn-primary" onClick={()=>onSave(form)}>{initial?"💾 Salva modifiche":"✅ Aggiungi enigma"}</button>
+        <button className="btn btn-primary" onClick={()=>onSave(form)}>{initial?.id ? "💾 Salva modifiche" : "✅ Aggiungi enigma"}</button>
         <button className="btn btn-ghost" onClick={onCancel}>Annulla</button>
       </div>
     </div>
@@ -169,6 +169,7 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
   const [loading, setLoading] = useState(true);
   const [modalMode, setModalMode] = useState(null);
   const [modalEnigma, setModalEnigma] = useState(null);
+  const [newDateForModal, setNewDateForModal] = useState(null);
   const [sortCol, setSortCol] = useState("data_pub");
   const [sortDir, setSortDir] = useState("desc");
   const [filterCat, setFilterCat] = useState("Tutte");
@@ -233,10 +234,10 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
     if (onConfigUpdate) onConfigUpdate();
   };
 
-  const openAdd = () => { setModalEnigma(null); setModalMode("add"); };
+  const openAdd = () => { setModalEnigma(null); setNewDateForModal(null); setModalMode("add"); };
   const openView = (e) => { setModalEnigma(e); setModalMode("view"); };
   const openEdit = (e) => { setModalEnigma(e); setModalMode("edit"); };
-  const closeModal = () => { setModalMode(null); setModalEnigma(null); };
+  const closeModal = () => { setModalMode(null); setModalEnigma(null); setNewDateForModal(null); };
 
   const handleSort = (col) => {
     if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc");
@@ -292,7 +293,6 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
       <h1 style={{fontFamily:"'Fredoka One'",fontSize:36,color:COLORS.accent,marginBottom:4}}>⚙️ Pannello Admin</h1>
       <p style={{color:COLORS.muted,marginBottom:24}}>Gestisci enigmi, iscritti, analytics e impostazioni</p>
 
-      {/* KPI */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:28}}>
         {[{label:"Iscritti",value:profiles.length,color:COLORS.secondary,icon:"👥"},{label:"Enigmi",value:enigmi.length,color:COLORS.primary,icon:"🧩"},{label:"Newsletter",value:an.newsletter,color:COLORS.accent,icon:"📧"},{label:"Risolti",value:an.totalSolved,color:COLORS.success,icon:"✅"}].map(s=>(
           <div key={s.label} className="card" style={{textAlign:"center",padding:16}}>
@@ -308,6 +308,7 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
         {tab("iscritti","👥 Iscritti")}
         {tab("newsletter","📧 Newsletter")}
         {tab("analytics","📊 Analytics")}
+        {tab("calendario","📅 Calendario")}
         {tab("impostazioni","⚙️ Impostazioni")}
       </div>
 
@@ -491,27 +492,31 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
         </div>
       )}
 
+      {/* CALENDARIO */}
+      {view==="calendario" && (
+        <CalendarioTab
+          enigmi={enigmi}
+          stats={stats}
+          onOpenAdd={(data) => { setNewDateForModal(data); setModalMode("add"); }}
+          onOpenView={openView}
+        />
+      )}
+
       {/* IMPOSTAZIONI */}
       {view==="impostazioni" && (
         <div>
           <h2 style={{fontFamily:"'Fredoka One'",fontSize:24,marginBottom:4}}>⚙️ Impostazioni</h2>
           <p style={{color:COLORS.muted,marginBottom:28,fontSize:14}}>Configura i tempi per difficoltà e le istruzioni per categoria</p>
-
-          {/* Tempi */}
           <div className="card" style={{marginBottom:24}}>
             <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:4}}>⏱ Tempo per difficoltà</h3>
-            <p style={{color:COLORS.muted,fontSize:13,marginBottom:20}}>Secondi a disposizione per rispondere in base al livello dell'enigma</p>
+            <p style={{color:COLORS.muted,fontSize:13,marginBottom:20}}>Secondi a disposizione per rispondere</p>
             <div style={{display:"grid",gap:16}}>
-              {diffConfig.map(d=>(
-                <DiffTimerRow key={d.livello} config={d} onSave={saveDiffConfig}/>
-              ))}
+              {diffConfig.map(d=><DiffTimerRow key={d.livello} config={d} onSave={saveDiffConfig}/>)}
             </div>
           </div>
-
-          {/* Istruzioni categorie */}
           <div className="card">
             <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:4}}>📖 Istruzioni per categoria</h3>
-            <p style={{color:COLORS.muted,fontSize:13,marginBottom:20}}>Testo mostrato agli utenti quando cliccano "Come funziona questa categoria"</p>
+            <p style={{color:COLORS.muted,fontSize:13,marginBottom:20}}>Testo mostrato agli utenti quando cliccano "Come funziona"</p>
             <div style={{display:"grid",gap:20}}>
               {CATEGORIE.map(cat=>{
                 const cfg=catConfig.find(c=>c.categoria===cat);
@@ -525,7 +530,7 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
       {/* MODAL */}
       {modalMode && (
         <Modal onClose={closeModal}>
-          {modalMode==="add" && <EnigmaForm onSave={addEnigma} onCancel={closeModal} showToast={showToast}/>}
+          {modalMode==="add" && <EnigmaForm initial={newDateForModal ? {data_pub: newDateForModal} : null} onSave={addEnigma} onCancel={closeModal} showToast={showToast}/>}
           {modalMode==="edit" && <EnigmaForm initial={modalEnigma} onSave={updateEnigma} onCancel={closeModal} showToast={showToast}/>}
           {modalMode==="view" && modalEnigma && (
             <div>
@@ -577,9 +582,7 @@ function DiffTimerRow({ config, onSave }) {
         <span style={{fontSize:20}}>{["","🧩","🧩🧩","🧩🧩🧩"][config.livello]}</span>
         <span style={{fontWeight:700,marginLeft:8,color:colors[config.livello]}}>{["","Facile","Medio","Difficile"][config.livello]}</span>
       </div>
-      <input
-        type="number" min={10} max={3600}
-        value={val}
+      <input type="number" min={10} max={3600} value={val}
         onChange={e=>{setVal(+e.target.value);setDirty(true);}}
         style={{background:"#0F0F1A",border:`2px solid ${dirty?colors[config.livello]:"#8888AA33"}`,borderRadius:10,padding:"8px 14px",color:"#F0F0F0",fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:16,width:100,outline:"none"}}
       />
@@ -598,17 +601,125 @@ function CatInstruzioniRow({ categoria, istruzioni: initialVal, onSave }) {
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
         <span className="tag" style={{background:catColor,color:"#000",fontSize:13}}>{categoria}</span>
       </div>
-      <textarea
-        className="input"
-        rows={3}
+      <textarea className="input" rows={3}
         placeholder={`Spiega come funziona la categoria "${categoria}"...`}
-        value={val}
-        onChange={e=>{setVal(e.target.value);setDirty(true);}}
+        value={val} onChange={e=>{setVal(e.target.value);setDirty(true);}}
         style={{resize:"vertical",marginBottom:8}}
       />
-      {dirty && (
-        <button className="btn btn-primary btn-sm" onClick={()=>{onSave(categoria,val);setDirty(false);}}>💾 Salva istruzioni</button>
-      )}
+      {dirty && <button className="btn btn-primary btn-sm" onClick={()=>{onSave(categoria,val);setDirty(false);}}>💾 Salva istruzioni</button>}
+    </div>
+  );
+}
+
+function CalendarioTab({ enigmi, stats, onOpenAdd, onOpenView }) {
+  const today = new Date();
+  const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (firstDay + 6) % 7;
+
+  const mesi = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+  const giorni = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+
+  const getDateStr = (d) => new Date(year, month, d).toISOString().split("T")[0];
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const enigmaByDate = {};
+  enigmi.forEach(e => { enigmaByDate[e.data_pub] = e; });
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const monthStr = `${year}-${String(month+1).padStart(2,"0")}`;
+  const enigmiMese = Object.keys(enigmaByDate).filter(d => d.startsWith(monthStr));
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+        <h2 style={{fontFamily:"'Fredoka One'",fontSize:24}}>📅 Calendario Enigmi</h2>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setViewDate(new Date(year, month-1, 1))}>← Prec</button>
+          <span style={{fontFamily:"'Fredoka One'",fontSize:20,color:COLORS.primary,minWidth:180,textAlign:"center"}}>{mesi[month]} {year}</span>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setViewDate(new Date(year, month+1, 1))}>Succ →</button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
+        {[
+          {color:COLORS.success,label:"Enigma presente"},
+          {color:COLORS.primary,label:"Oggi"},
+          {color:COLORS.cardLight,label:"Nessun enigma",border:true},
+        ].map(l=>(
+          <div key={l.label} style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:12,height:12,borderRadius:3,background:l.color,border:l.border?`1px dashed ${COLORS.muted}`:""}}/>
+            <span style={{fontSize:12,color:COLORS.muted}}>{l.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:COLORS.card,borderRadius:20,overflow:"hidden",border:`1px solid ${COLORS.cardLight}`}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:COLORS.cardLight}}>
+          {giorni.map(g=>(
+            <div key={g} style={{padding:"10px 0",textAlign:"center",fontSize:12,fontWeight:700,color:COLORS.muted,letterSpacing:1}}>{g}</div>
+          ))}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,background:COLORS.cardLight}}>
+          {cells.map((d, i) => {
+            if (!d) return <div key={`e${i}`} style={{background:COLORS.card,minHeight:90}}/>;
+            const dateStr = getDateStr(d);
+            const enigma = enigmaByDate[dateStr];
+            const isToday = dateStr === todayStr;
+            const isPast = dateStr < todayStr;
+            const catColor = enigma ? (CAT_COLORS[enigma.categoria] || COLORS.primary) : null;
+            return (
+              <div key={d}
+                onClick={() => enigma ? onOpenView(enigma) : onOpenAdd(dateStr)}
+                style={{
+                  background: isToday ? COLORS.primary+"22" : COLORS.card,
+                  minHeight:90, padding:8, cursor:"pointer",
+                  border: isToday ? `2px solid ${COLORS.primary}` : "2px solid transparent",
+                  transition:"all .15s", opacity: isPast && !enigma ? 0.4 : 1
+                }}
+                onMouseEnter={e=>e.currentTarget.style.background=COLORS.primary+"18"}
+                onMouseLeave={e=>e.currentTarget.style.background=isToday?COLORS.primary+"22":COLORS.card}
+              >
+                <div style={{fontSize:13,fontWeight:700,color:isToday?COLORS.primary:isPast?COLORS.muted:COLORS.text,marginBottom:4}}>
+                  {d}{isToday&&<span style={{fontSize:10,marginLeft:4,color:COLORS.primary}}>oggi</span>}
+                </div>
+                {enigma && (
+                  <div>
+                    <div style={{background:catColor+"33",color:catColor,fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:50,display:"inline-block",marginBottom:3}}>
+                      {enigma.categoria}
+                    </div>
+                    <div style={{fontSize:11,color:COLORS.muted,lineHeight:1.3}}>{enigma.testo.substring(0,28)}...</div>
+                    <div style={{fontSize:10,color:COLORS.success,marginTop:2}}>✅ {stats[enigma.id]||0}</div>
+                  </div>
+                )}
+                {!enigma && !isPast && (
+                  <div style={{color:COLORS.muted+"88",fontSize:11,marginTop:4}}>+ aggiungi</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:16}}>
+        {[
+          {label:"Enigmi questo mese", value:enigmiMese.length, color:COLORS.primary},
+          {label:"Giorni coperti", value:`${enigmiMese.length}/${daysInMonth}`, color:COLORS.secondary},
+          {label:"Risolti totali", value:enigmiMese.reduce((a,d)=>a+(stats[enigmaByDate[d]?.id]||0),0), color:COLORS.success},
+        ].map(s=>(
+          <div key={s.label} className="card" style={{textAlign:"center",padding:14}}>
+            <div style={{fontFamily:"'Fredoka One'",fontSize:26,color:s.color}}>{s.value}</div>
+            <div style={{fontSize:11,color:COLORS.muted,fontWeight:700}}>{s.label.toUpperCase()}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
