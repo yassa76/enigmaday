@@ -66,14 +66,26 @@ export default function App() {
     loadEnigmi();
     loadConfigs();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
-      setSession(sess);
+    // Controlla la sessione esistente al caricamento
+    supabase.auth.getSession().then(({ data: { session: sess } }) => {
       if (sess) {
-        await loadProfile(sess.user.id);
+        setSession(sess);
+        loadProfile(sess.user.id);
       } else {
-        setProfile(null);
+        setSession(null); // nessuna sessione, sblocca il loading
       }
     });
+
+    // Ascolta i cambiamenti successivi (login, logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      if (_event === "INITIAL_SESSION") return; // già gestito da getSession
+      setSession(sess);
+      if (sess) await loadProfile(sess.user.id);
+      else setProfile(null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
     return () => subscription.unsubscribe();
   }, []);
