@@ -63,33 +63,37 @@ export default function App() {
   };
 
   useEffect(() => {
+    console.log("useEffect partito");
     loadEnigmi();
     loadConfigs();
 
+    console.log("chiamo getSession...");
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
+      console.log("getSession risposto:", sess);
       if (sess) {
         setSession(sess);
         loadProfile(sess.user.id);
       } else {
         setSession(null);
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("getSession errore:", err);
       setSession(null);
     });
 
-    // Timeout di sicurezza — se dopo 3 secondi session è ancora undefined, forza null
     setTimeout(() => {
-      setSession(prev => prev === undefined ? null : prev);
+      setSession(prev => {
+        console.log("timeout, session è:", prev);
+        return prev === undefined ? null : prev;
+      });
     }, 3000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      console.log("onAuthStateChange:", _event, sess);
       if (_event === "INITIAL_SESSION") return;
       setSession(sess);
-      if (sess) {
-        await loadProfile(sess.user.id);
-      } else {
-        setProfile(null);
-      }
+      if (sess) await loadProfile(sess.user.id);
+      else setProfile(null);
     });
 
     return () => subscription.unsubscribe();
