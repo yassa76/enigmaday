@@ -199,6 +199,7 @@ export default function App() {
               profile={profile}
               showToast={showToast}
               onLoginRequest={() => navigate("login")}
+              onNav={navigate}
               diffConfig={diffConfig}
               catConfig={catConfig}
             />
