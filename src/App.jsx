@@ -34,7 +34,9 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   const loadProfile = async (userId) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    console.log("loadProfile chiamato per:", userId);
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    console.log("loadProfile risultato:", data, error);
     if (data) setProfile(data);
   };
 
