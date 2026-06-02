@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "./lib/supabase";
 import Navbar from "./components/Navbar";
 import Toast from "./components/Toast";
@@ -8,9 +8,24 @@ import { RegisterPage } from "./components/AuthPages";
 import ProfilePage from "./components/ProfilePage";
 import AdminPanel from "./components/AdminPanel";
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  componentDidCatch(error, info) { console.error("CRASH:", error.message, info.componentStack); }
+  static getDerivedStateFromError(error) { return { error: error.message }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{padding:40, color:"#EF4444", fontFamily:"monospace", background:"#0F0F1A", minHeight:"100vh"}}>
+        <h2>💥 Errore: {this.state.error}</h2>
+        <p style={{marginTop:16, color:"#8888AA"}}>Apri la console (F12) per i dettagli</p>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [page, setPage] = useState("home");
-  const [session, setSession] = useState(undefined); // undefined = non ancora inizializzato
+  const [session, setSession] = useState(undefined);
   const [profile, setProfile] = useState(null);
   const [todayEnigma, setTodayEnigma] = useState(null);
   const [yesterdayEnigma, setYesterdayEnigma] = useState(null);
@@ -48,13 +63,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Carica enigmi e config subito, indipendentemente dalla sessione
     loadEnigmi();
     loadConfigs();
 
-    // Usa SOLO onAuthStateChange per gestire la sessione
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
-      setSession(sess); // null o oggetto sessione
+      setSession(sess);
       if (sess) {
         await loadProfile(sess.user.id);
       } else {
@@ -97,7 +110,6 @@ export default function App() {
     showToast("Profilo aggiornato ✅", "success");
   };
 
-  // undefined = Supabase non ha ancora risposto, mostra loading
   if (session === undefined) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
       <div style={{ fontSize:56 }}>🧩</div>
@@ -105,7 +117,6 @@ export default function App() {
     </div>
   );
 
-  // Sessione presente ma profilo non ancora caricato
   if (session && !profile) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16, background:"#0F0F1A" }}>
       <div style={{ fontSize:56 }}>🧩</div>
@@ -116,7 +127,7 @@ export default function App() {
   const isAdmin = profile?.ruolo === "admin";
 
   return (
-    <>
+    <ErrorBoundary>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
         * { box-sizing:border-box; margin:0; padding:0; }
@@ -146,27 +157,29 @@ export default function App() {
       <Navbar profile={profile} session={session} onLogout={handleLogout} onNav={setPage} isAdmin={isAdmin} />
 
       <div style={{ maxWidth: page === "admin" ? 1400 : 900, margin:"0 auto", padding:"28px 24px", minHeight:"calc(100vh - 70px)" }}>
-        {page === "home" && todayEnigma !== undefined &&
-          <HomePage
-            enigma={todayEnigma}
-            yesterdayEnigma={yesterdayEnigma}
-            session={session}
-            profile={profile}
-            showToast={showToast}
-            onLoginRequest={() => setPage("login")}
-            diffConfig={diffConfig}
-            catConfig={catConfig}
-          />
-        }
-        {page === "login" && <LoginPage onLogin={handleLogin} onRegister={() => setPage("register")} />}
-        {page === "register" && <RegisterPage onRegister={handleRegister} onLogin={() => setPage("login")} />}
-        {page === "profile" && session &&
-          <ProfilePage profile={profile} session={session} onUpdate={handleUpdateProfile} showToast={showToast} />
-        }
-        {page === "admin" && isAdmin &&
-          <AdminPanel showToast={showToast} onConfigUpdate={loadConfigs} />
-        }
+        <ErrorBoundary>
+          {page === "home" &&
+            <HomePage
+              enigma={todayEnigma}
+              yesterdayEnigma={yesterdayEnigma}
+              session={session}
+              profile={profile}
+              showToast={showToast}
+              onLoginRequest={() => setPage("login")}
+              diffConfig={diffConfig}
+              catConfig={catConfig}
+            />
+          }
+          {page === "login" && <LoginPage onLogin={handleLogin} onRegister={() => setPage("register")} />}
+          {page === "register" && <RegisterPage onRegister={handleRegister} onLogin={() => setPage("login")} />}
+          {page === "profile" && session &&
+            <ProfilePage profile={profile} session={session} onUpdate={handleUpdateProfile} showToast={showToast} />
+          }
+          {page === "admin" && isAdmin &&
+            <AdminPanel showToast={showToast} onConfigUpdate={loadConfigs} />
+          }
+        </ErrorBoundary>
       </div>
-    </>
+    </ErrorBoundary>
   );
 }
