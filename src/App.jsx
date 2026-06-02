@@ -109,9 +109,17 @@ export default function App() {
     navigate("home");
   };
 
-  const handleRegister = async (nome, email, password, preferenze) => {
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { nome } } });
+  const handleRegister = async (nome, cognome, email, password, preferenze) => {
+    const { error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { nome, cognome } }
+    });
     if (error) return showToast(error.message, "error");
+    // Aggiorna il profilo con cognome e preferenze
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("profiles").update({ cognome, preferenze }).eq("id", user.id);
+    }
     showToast("Account creato! Controlla la tua email 📧", "success");
     navigate("login");
   };
