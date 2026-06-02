@@ -63,9 +63,12 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (_event === 'INITIAL_SESSION') return;
+      setLoading(true);
       setSession(session);
       if (session) await loadProfile(session.user.id);
       else setProfile(null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
