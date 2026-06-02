@@ -67,27 +67,6 @@ export default function App() {
     loadEnigmi();
     loadConfigs();
 
-    console.log("chiamo getSession...");
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      console.log("getSession risposto:", sess);
-      if (sess) {
-        setSession(sess);
-        loadProfile(sess.user.id);
-      } else {
-        setSession(null);
-      }
-    }).catch((err) => {
-      console.error("getSession errore:", err);
-      setSession(null);
-    });
-
-    setTimeout(() => {
-      setSession(prev => {
-        console.log("timeout, session è:", prev);
-        return prev === undefined ? null : prev;
-      });
-    }, 3000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       console.log("onAuthStateChange:", _event, sess);
       if (_event === "INITIAL_SESSION") {
