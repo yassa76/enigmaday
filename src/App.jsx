@@ -34,14 +34,16 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   const loadProfile = async (userId) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .limit(1);
-    console.log("loadProfile risultato:", data, error);
-    if (data && data.length > 0) setProfile(data[0]);
-    else setProfile({});
+    try {
+      const { data, error } = await Promise.race([
+        supabase.from("profiles").select("*").eq("id", userId).limit(1),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
+      ]);
+      if (data && data.length > 0) setProfile(data[0]);
+      else setProfile({});
+    } catch(err) {
+      setProfile({});
+    }
   };
 
   const loadEnigmi = async () => {
