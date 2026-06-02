@@ -1,99 +1,338 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
-const COLORS = { primary:"#FF6B35", secondary:"#4ECDC4", accent:"#FFE66D", purple:"#A855F7", card:"#1A1A2E", cardLight:"#16213E", text:"#F0F0F0", muted:"#8888AA", success:"#22C55E" };
-const CAT_COLORS = { Indovinello:"#FF6B35", Logica:"#4ECDC4", Rebus:"#A855F7", Matematica:"#FFE66D", Quiz:"#EC4899" };
+const COLORS = { primary:"#FF6B35", secondary:"#4ECDC4", accent:"#FFE66D", purple:"#A855F7", card:"#1A1A2E", cardLight:"#16213E", text:"#F0F0F0", muted:"#8888AA", success:"#22C55E", error:"#EF4444" };
+const CAT_COLORS = { Indovinello:"#FF6B35", Logica:"#4ECDC4", Rebus:"#A855F7", Matematica:"#FFE66D", Quiz:"#EC4899", "Indovina il film":"#38BDF8", Ghigliottina:"#F43F5E" };
+
+const DEFAULT_AVATARS = ["🧩","🦊","🐼","🦁","🐸","🦄","🐯","🐧","🦋","🎭","🧠","⚡"];
+
+function AvatarCircle({ src, emoji, size = 80 }) {
+  if (src) return (
+    <img src={src} alt="avatar" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",border:`3px solid ${COLORS.primary}`}}/>
+  );
+  return (
+    <div style={{width:size,height:size,borderRadius:"50%",background:COLORS.cardLight,border:`3px solid ${COLORS.primary}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.45}}>
+      {emoji || "🧩"}
+    </div>
+  );
+}
+
+function CropModal({ imageSrc, onCrop, onCancel }) {
+  const canvasRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x:0, y:0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x:0, y:0 });
+  const imgRef = useRef(null);
+  const SIZE = 280;
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => { imgRef.current = img; draw(); };
+    img.src = imageSrc;
+  }, [imageSrc]);
+
+  useEffect(() => { draw(); }, [scale, offset]);
+
+  const draw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imgRef.current) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,SIZE,SIZE);
+    const img = imgRef.current;
+    const ratio = Math.max(SIZE/img.width, SIZE/img.height) * scale;
+    const w = img.width * ratio, h = img.height * ratio;
+    const x = (SIZE-w)/2 + offset.x, y = (SIZE-h)/2 + offset.y;
+    ctx.drawImage(img, x, y, w, h);
+    // overlay circolare
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.beginPath(); ctx.arc(SIZE/2,SIZE/2,SIZE/2,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  };
+
+  const handleMouseDown = (e) => { setDragging(true); setDragStart({x:e.clientX-offset.x,y:e.clientY-offset.y}); };
+  const handleMouseMove = (e) => { if (!dragging) return; setOffset({x:e.clientX-dragStart.x,y:e.clientY-dragStart.y}); };
+  const handleMouseUp = () => setDragging(false);
+
+  const cropAndSave = () => {
+    const canvas = canvasRef.current;
+    canvas.toBlob(blob => onCrop(blob), "image/jpeg", 0.9);
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.85)",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget)onCancel();}}>
+      <div style={{background:COLORS.card,borderRadius:24,padding:32,maxWidth:380,width:"100%",textAlign:"center"}}>
+        <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,color:COLORS.primary,marginBottom:8}}>Ritaglia foto profilo</h3>
+        <p style={{color:COLORS.muted,fontSize:13,marginBottom:20}}>Trascina per posizionare, usa lo slider per zoomare</p>
+        <div style={{display:"inline-block",borderRadius:"50%",overflow:"hidden",cursor:"grab",border:`3px solid ${COLORS.primary}`}}>
+          <canvas ref={canvasRef} width={SIZE} height={SIZE}
+            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+            style={{display:"block"}}
+          />
+        </div>
+        <div style={{marginTop:16,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:12,color:COLORS.muted}}>🔍</span>
+          <input type="range" min={0.5} max={3} step={0.05} value={scale}
+            onChange={e=>setScale(+e.target.value)}
+            style={{flex:1,accentColor:COLORS.primary}}
+          />
+          <span style={{fontSize:12,color:COLORS.muted}}>🔎</span>
+        </div>
+        <div style={{display:"flex",gap:10,marginTop:20}}>
+          <button className="btn btn-primary" style={{flex:1,justifyContent:"center"}} onClick={cropAndSave}>✅ Usa questa foto</button>
+          <button className="btn btn-ghost" style={{flex:1,justifyContent:"center"}} onClick={onCancel}>Annulla</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage({ profile, session, onUpdate, showToast }) {
   const [prefs, setPrefs] = useState(profile?.preferenze || []);
   const [newsletter, setNewsletter] = useState(profile?.newsletter || false);
+  const [consensoMarketing, setConsensoMarketing] = useState(profile?.consenso_marketing || false);
   const [tentativi, setTentativi] = useState([]);
-  const categorie = ["Indovinello","Logica","Rebus","Matematica","Quiz"];
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+  const [selectedEmoji, setSelectedEmoji] = useState(null);
+  const [cropSrc, setCropSrc] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [tab, setTab] = useState("stats"); // stats | avatar | preferenze | privacy
+  const categorie = ["Indovinello","Logica","Rebus","Matematica","Quiz","Indovina il film","Ghigliottina"];
+  const fileRef = useRef(null);
 
-  useEffect(() => {
-    loadTentativi();
-  }, []);
+  // Prendi l'avatar da Google se disponibile
+  const googleAvatar = session?.user?.user_metadata?.avatar_url || session?.user?.user_metadata?.picture;
+  const displayAvatar = avatarUrl || googleAvatar || null;
+  const displayEmoji = !displayAvatar ? (selectedEmoji || "🧩") : null;
+
+  useEffect(() => { loadTentativi(); }, []);
 
   const loadTentativi = async () => {
-    const { data } = await supabase
-      .from("tentativi")
-      .select("*, enigmi(testo, categoria)")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("tentativi").select("*, enigmi(testo,categoria)").eq("user_id", session.user.id).order("created_at", {ascending:false});
     setTentativi(data || []);
   };
 
   const togglePref = (c) => setPrefs(p => p.includes(c) ? p.filter(x=>x!==c) : [...p,c]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setCropSrc(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCrop = async (blob) => {
+    setCropSrc(null);
+    setUploading(true);
+    const path = `${session.user.id}/avatar.jpg`;
+    const { error } = await supabase.storage.from("avatars").upload(path, blob, { upsert:true, contentType:"image/jpeg" });
+    if (error) { showToast("Errore upload: "+error.message,"error"); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    const url = publicUrl + "?t=" + Date.now();
+    setAvatarUrl(url);
+    setUploading(false);
+    showToast("Foto aggiornata ✅","success");
+  };
+
+  const saveProfile = async () => {
+    const updates = {
+      preferenze: prefs,
+      newsletter,
+      consenso_marketing: consensoMarketing,
+      avatar_url: avatarUrl,
+      consenso_data: (newsletter || consensoMarketing) ? new Date().toISOString() : null,
+    };
+    await onUpdate(updates);
+  };
+
   const solved = tentativi.filter(t => t.corretto);
   const rate = tentativi.length ? Math.round(solved.length / tentativi.length * 100) : 0;
 
+  const tabStyle = (t) => ({
+    padding:"8px 18px", borderRadius:50, fontWeight:800, cursor:"pointer", fontSize:13, border:"none",
+    background: tab===t ? COLORS.primary : COLORS.cardLight,
+    color: tab===t ? "#fff" : COLORS.muted,
+    fontFamily:"'Nunito',sans-serif", transition:"all .2s"
+  });
+
   return (
     <div className="fade-in">
-      <h1 style={{fontFamily:"'Fredoka One'",fontSize:36,color:COLORS.primary,marginBottom:4}}>Il mio Profilo 👤</h1>
-      <p style={{color:COLORS.muted,marginBottom:28,fontSize:15}}>Ciao, {profile?.nome}! Ecco le tue statistiche e preferenze.</p>
-
-      {/* Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}}>
-        {[
-          {label:"Risolti", value:solved.length, color:COLORS.success, icon:"✅"},
-          {label:"Tentati", value:tentativi.length, color:COLORS.secondary, icon:"🎯"},
-          {label:"Tasso", value:tentativi.length ? rate+"%" : "—", color:COLORS.accent, icon:"📊"},
-        ].map(s => (
-          <div key={s.label} className="card" style={{textAlign:"center"}}>
-            <div style={{fontSize:28}}>{s.icon}</div>
-            <div style={{fontFamily:"'Fredoka One'",fontSize:34,color:s.color}}>{s.value}</div>
-            <div style={{fontSize:12,color:COLORS.muted,fontWeight:700,letterSpacing:1}}>{s.label.toUpperCase()}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Preferences */}
-      <div className="card" style={{marginBottom:20}}>
-        <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:12}}>🎯 Preferenze Enigmi</h3>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-          {categorie.map(c => (
-            <span key={c} onClick={()=>togglePref(c)} className="tag"
-              style={{background:prefs.includes(c)?CAT_COLORS[c]:"#16213E",color:prefs.includes(c)?"#000":COLORS.muted,border:`1px solid ${prefs.includes(c)?CAT_COLORS[c]:COLORS.muted}`,transition:"all .15s",fontSize:14,padding:"6px 14px"}}>
-              {c}
-            </span>
-          ))}
+      {/* Header profilo */}
+      <div className="card" style={{marginBottom:20,display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
+        <div style={{position:"relative",cursor:"pointer"}} onClick={()=>setTab("avatar")}>
+          <AvatarCircle src={displayAvatar} emoji={displayEmoji} size={80}/>
+          <div style={{position:"absolute",bottom:0,right:0,background:COLORS.primary,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>✏️</div>
         </div>
-        <p style={{fontSize:13,color:COLORS.muted}}>Seleziona le categorie che preferisci</p>
-      </div>
-
-      {/* Newsletter */}
-      <div className="card" style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
-          <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:4}}>📧 Newsletter</h3>
-          <p style={{color:COLORS.muted,fontSize:14}}>Ricevi l'enigma del giorno ogni mattina via email</p>
-        </div>
-        <div onClick={()=>setNewsletter(!newsletter)}
-          style={{width:52,height:28,borderRadius:14,background:newsletter?COLORS.success:COLORS.muted,position:"relative",cursor:"pointer",transition:"background .2s",flexShrink:0}}>
-          <div style={{position:"absolute",top:3,left:newsletter?26:3,width:22,height:22,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+          <h1 style={{fontFamily:"'Fredoka One'",fontSize:28,color:COLORS.primary}}>{profile?.nome || "Utente"}</h1>
+          <p style={{color:COLORS.muted,fontSize:14}}>{session?.user?.email}</p>
+          {profile?.streak > 0 && <p style={{color:"#F59E0B",fontWeight:700,marginTop:4}}>🔥 {profile.streak} giorni di fila</p>}
         </div>
       </div>
 
-      <button className="btn btn-primary" onClick={()=>onUpdate({preferenze:prefs, newsletter})}>
-        💾 Salva modifiche
-      </button>
+      {/* Tabs */}
+      <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        <button style={tabStyle("stats")} onClick={()=>setTab("stats")}>📊 Statistiche</button>
+        <button style={tabStyle("avatar")} onClick={()=>setTab("avatar")}>🖼️ Avatar</button>
+        <button style={tabStyle("preferenze")} onClick={()=>setTab("preferenze")}>🎯 Preferenze</button>
+        <button style={tabStyle("privacy")} onClick={()=>setTab("privacy")}>🔒 Privacy & GDPR</button>
+      </div>
 
-      {/* History */}
-      {tentativi.length > 0 && (
-        <div className="card" style={{marginTop:28}}>
-          <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:16}}>📜 Storico tentativi</h3>
-          {tentativi.map(t => (
-            <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${COLORS.cardLight}`}}>
-              <div>
-                <div style={{fontWeight:600,fontSize:14}}>{t.enigmi?.testo?.substring(0,55)}...</div>
-                <div style={{fontSize:12,color:COLORS.muted,marginTop:2}}>La tua risposta: "{t.risposta}"</div>
+      {/* STATISTICHE */}
+      {tab === "stats" && (
+        <div className="fade-in">
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:24}}>
+            {[
+              {label:"Risolti", value:solved.length, color:COLORS.success, icon:"✅"},
+              {label:"Tentati", value:tentativi.length, color:COLORS.secondary, icon:"🎯"},
+              {label:"Tasso", value:tentativi.length ? rate+"%" : "—", color:COLORS.accent, icon:"📊"},
+            ].map(s => (
+              <div key={s.label} className="card" style={{textAlign:"center"}}>
+                <div style={{fontSize:28}}>{s.icon}</div>
+                <div style={{fontFamily:"'Fredoka One'",fontSize:34,color:s.color}}>{s.value}</div>
+                <div style={{fontSize:12,color:COLORS.muted,fontWeight:700,letterSpacing:1}}>{s.label.toUpperCase()}</div>
               </div>
-              <span className="tag" style={{background:t.corretto?"#22C55E33":"#EF444433",color:t.corretto?"#22C55E":"#EF4444",flexShrink:0,marginLeft:12}}>
-                {t.corretto ? "✅ Risolto" : "❌ Errato"}
-              </span>
+            ))}
+          </div>
+          {tentativi.length > 0 && (
+            <div className="card">
+              <h3 style={{fontFamily:"'Fredoka One'",fontSize:20,marginBottom:16}}>📜 Storico tentativi</h3>
+              {tentativi.map(t => (
+                <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${COLORS.cardLight}`}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14}}>{t.enigmi?.testo?.substring(0,55)}...</div>
+                    <div style={{fontSize:12,color:COLORS.muted,marginTop:2}}>"{t.risposta}"</div>
+                  </div>
+                  <span style={{background:t.corretto?"#22C55E33":"#EF444433",color:t.corretto?"#22C55E":"#EF4444",padding:"3px 10px",borderRadius:50,fontSize:12,fontWeight:700,flexShrink:0,marginLeft:12}}>
+                    {t.corretto?"✅":"❌"}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
+      )}
+
+      {/* AVATAR */}
+      {tab === "avatar" && (
+        <div className="fade-in">
+          <div className="card" style={{marginBottom:16}}>
+            <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:16}}>🖼️ La tua foto profilo</h3>
+
+            {/* Preview */}
+            <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:24}}>
+              <AvatarCircle src={displayAvatar} emoji={displayEmoji} size={100}/>
+              <div>
+                {googleAvatar && !avatarUrl && (
+                  <p style={{color:COLORS.muted,fontSize:13,marginBottom:8}}>📌 Stai usando la foto del tuo account Google</p>
+                )}
+                <button className="btn btn-primary btn-sm" onClick={()=>fileRef.current?.click()} disabled={uploading}>
+                  {uploading ? "⏳ Caricamento..." : "📷 Carica una foto"}
+                </button>
+                <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} style={{display:"none"}}/>
+                {(avatarUrl) && (
+                  <button className="btn btn-ghost btn-sm" style={{marginLeft:8}} onClick={()=>setAvatarUrl("")}>
+                    🗑️ Rimuovi
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Avatar emoji di default */}
+            <h4 style={{fontWeight:700,color:COLORS.muted,fontSize:13,letterSpacing:1,marginBottom:12}}>OPPURE SCEGLI UN AVATAR</h4>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              {DEFAULT_AVATARS.map(emoji => (
+                <div key={emoji} onClick={()=>{setSelectedEmoji(emoji);setAvatarUrl("");}}
+                  style={{width:52,height:52,borderRadius:"50%",background:selectedEmoji===emoji&&!avatarUrl?COLORS.primary+"33":COLORS.cardLight,border:`2px solid ${selectedEmoji===emoji&&!avatarUrl?COLORS.primary:"transparent"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,cursor:"pointer",transition:"all .15s"}}>
+                  {emoji}
+                </div>
+              ))}
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={saveProfile}>💾 Salva modifiche</button>
+        </div>
+      )}
+
+      {/* PREFERENZE */}
+      {tab === "preferenze" && (
+        <div className="fade-in">
+          <div className="card" style={{marginBottom:16}}>
+            <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:12}}>🎯 Categorie preferite</h3>
+            <p style={{color:COLORS.muted,fontSize:13,marginBottom:16}}>Seleziona le categorie di enigmi che preferisci</p>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {categorie.map(c => (
+                <span key={c} onClick={()=>togglePref(c)} className="tag"
+                  style={{background:prefs.includes(c)?CAT_COLORS[c]||COLORS.primary:COLORS.cardLight,color:prefs.includes(c)?"#000":COLORS.muted,border:`1px solid ${prefs.includes(c)?CAT_COLORS[c]||COLORS.primary:COLORS.muted}`,transition:"all .15s",fontSize:14,padding:"6px 14px"}}>
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={saveProfile}>💾 Salva modifiche</button>
+        </div>
+      )}
+
+      {/* PRIVACY & GDPR */}
+      {tab === "privacy" && (
+        <div className="fade-in">
+          <div className="card" style={{marginBottom:16}}>
+            <h3 style={{fontFamily:"'Fredoka One'",fontSize:22,marginBottom:4}}>🔒 Privacy & Consensi</h3>
+            <p style={{color:COLORS.muted,fontSize:13,marginBottom:24,lineHeight:1.6}}>
+              In conformità al Regolamento UE 2016/679 (GDPR), puoi gestire qui i tuoi consensi al trattamento dei dati personali. Puoi modificare o revocare i consensi in qualsiasi momento.
+            </p>
+
+            {/* Newsletter */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"16px 0",borderBottom:`1px solid ${COLORS.cardLight}`}}>
+              <div style={{flex:1,marginRight:16}}>
+                <div style={{fontWeight:700,marginBottom:4}}>📧 Newsletter giornaliera</div>
+                <div style={{color:COLORS.muted,fontSize:13,lineHeight:1.5}}>
+                  Ricevi l'enigma del giorno direttamente nella tua casella email ogni mattina. Puoi disiscriverti in qualsiasi momento.
+                </div>
+              </div>
+              <div onClick={()=>setNewsletter(!newsletter)}
+                style={{width:52,height:28,borderRadius:14,background:newsletter?COLORS.success:COLORS.muted,position:"relative",cursor:"pointer",transition:"background .2s",flexShrink:0}}>
+                <div style={{position:"absolute",top:3,left:newsletter?26:3,width:22,height:22,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+              </div>
+            </div>
+
+            {/* Marketing */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"16px 0",borderBottom:`1px solid ${COLORS.cardLight}`}}>
+              <div style={{flex:1,marginRight:16}}>
+                <div style={{fontWeight:700,marginBottom:4}}>📣 Comunicazioni promozionali</div>
+                <div style={{color:COLORS.muted,fontSize:13,lineHeight:1.5}}>
+                  Acconsento a ricevere comunicazioni su nuove funzionalità, eventi speciali e promozioni di EnigmaDay.
+                </div>
+              </div>
+              <div onClick={()=>setConsensoMarketing(!consensoMarketing)}
+                style={{width:52,height:28,borderRadius:14,background:consensoMarketing?COLORS.success:COLORS.muted,position:"relative",cursor:"pointer",transition:"background .2s",flexShrink:0}}>
+                <div style={{position:"absolute",top:3,left:consensoMarketing?26:3,width:22,height:22,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+              </div>
+            </div>
+
+            {/* Info GDPR */}
+            <div style={{padding:"16px 0"}}>
+              <div style={{fontWeight:700,marginBottom:8}}>ℹ️ I tuoi diritti GDPR</div>
+              <div style={{color:COLORS.muted,fontSize:13,lineHeight:1.7}}>
+                Hai diritto di accedere, rettificare, cancellare i tuoi dati personali. Hai diritto alla portabilità dei dati e di opporti al loro trattamento. Per esercitare questi diritti o per qualsiasi domanda sulla privacy, contattaci all'indirizzo indicato nel sito.
+              </div>
+              {profile?.consenso_data && (
+                <div style={{marginTop:8,fontSize:12,color:COLORS.muted}}>
+                  Ultimo aggiornamento consensi: {new Date(profile.consenso_data).toLocaleDateString("it-IT")}
+                </div>
+              )}
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={saveProfile}>💾 Salva consensi</button>
+        </div>
+      )}
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <CropModal imageSrc={cropSrc} onCrop={handleCrop} onCancel={()=>setCropSrc(null)}/>
       )}
     </div>
   );
