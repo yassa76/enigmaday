@@ -293,10 +293,10 @@ export default function ProfilePage({ profile, session, onUpdate, showToast }) {
     <div className="fade-in">
       {/* Header */}
       <div className="card" style={{marginBottom:20,display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
-        <div style={{position:"relative",cursor:isGoogleUser?"default":"pointer"}}
-          onClick={()=>!isGoogleUser && setShowAvatarModal(true)}>
+        <div style={{position:"relative",cursor:!isGoogleUser&&tab==="dati"?"pointer":"default"}}
+          onClick={()=>!isGoogleUser && tab==="dati" && setShowAvatarModal(true)}>
           <AvatarCircle src={displayAvatar} emoji={displayEmoji} nome={state.nome} size={80}/>
-          {!isGoogleUser && (
+          {!isGoogleUser && tab==="dati" && (
             <div style={{position:"absolute",bottom:0,right:0,background:COLORS.primary,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>✏️</div>
           )}
         </div>
