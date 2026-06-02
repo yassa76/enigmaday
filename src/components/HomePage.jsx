@@ -136,12 +136,13 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
   const [tempoUsato, setTempoUsato] = useState(null);
   const [startTime, setStartTime] = useState(null);
   const [shareImg, setShareImg] = useState(null);
+  const [campione, setCampione] = useState(null);
   const timerRef = useRef(null);
 
   useEffect(() => { const t = setInterval(()=>setCountdown(timeUntilMidnight()),1000); return ()=>clearInterval(t); }, []);
 
   useEffect(() => {
-    if (enigma) loadSolutori(enigma.id, setSolutori);
+    if (enigma) { loadSolutori(enigma.id, setSolutori); loadCampione(); }
     if (yesterdayEnigma) loadSolutori(yesterdayEnigma.id, setYesterdaySolutori);
     if (session && enigma) loadPrevAttempt();
     else { setState("idle"); setShowSolution(false); setAnswer(""); clearTimer(); }
@@ -152,8 +153,13 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
     setter(data?.solutori || 0);
   };
 
+  const loadCampione = async () => {
+    const { data } = await supabase.from("classifica_velocita_oggi").select("*").limit(1).maybeSingle();
+    setCampione(data || null);
+  };
+
   const loadPrevAttempt = async () => {
-    const { data } = await supabase.from("tentativi").select("*").eq("enigma_id", enigma.id).eq("user_id", session.user.id).maybeSingle();
+    const { data } = await supabase.from("tentativi").select("*").eq("enigma_id", enigma.id).eq("user_id", session.user.id).single();
     if (data) {
       setState(data.corretto ? "correct" : "wrong");
       if (data.tempo_usato) setTempoUsato(data.tempo_usato);
@@ -163,8 +169,7 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
   const clearTimer = () => { if (timerRef.current) clearInterval(timerRef.current); };
 
   const startTimer = () => {
-    //const cfg = diffConfig?.find(d => d.livello === enigma.difficolta);
-    const cfg = (diffConfig || []).find(d => d.livello === enigma?.difficolta);
+    const cfg = diffConfig?.find(d => d.livello === enigma.difficolta);
     const secs = cfg?.secondi || 180;
     setTimerTotale(secs);
     setTimerSecondi(secs);
@@ -243,8 +248,7 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
     } catch { showToast("Errore condivisione","error"); }
   };
 
-  const istruzioni = (catConfig || []).find(c => c.categoria === (session ? enigma?.categoria : yesterdayEnigma?.categoria));
-  //const istruzioni = catConfig?.find(c => c.categoria === (session ? enigma?.categoria : yesterdayEnigma?.categoria));
+  const istruzioni = catConfig?.find(c => c.categoria === (session ? enigma?.categoria : yesterdayEnigma?.categoria));
   const streak = profile?.streak || 0;
   const streakLast = profile?.streak_last_date;
   const streakAtRisk = streakLast === getYesterdayStr() && streak > 0 && state === "idle";
@@ -271,12 +275,7 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
           {session ? "Enigma del Giorno 🧩" : "Enigma di Ieri 🧩"}
         </h1>
         <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:12,flexWrap:"wrap",alignItems:"center"}}>
-          <span className="tag" style={{background:catColor, color:"#000", cursor: istruzioni?.istruzioni ? "pointer" : "default"}}
-          onClick={() => { if (istruzioni?.istruzioni) setShowInstruzioni(true); }}
-          title={istruzioni?.istruzioni ? "Clicca per le istruzioni" : ""}
-        >
-          {displayEnigma.categoria}
-        </span>
+          <span className="tag" style={{background:catColor,color:"#000"}}>{displayEnigma.categoria}</span>
           <span className="tag" style={{background:COLORS.cardLight,color:COLORS.text,border:`1px solid ${COLORS.muted}`}}>{DIFF_LABELS[displayEnigma.difficolta]}</span>
           <span className="tag" style={{background:COLORS.cardLight,color:COLORS.secondary,border:`1px solid ${COLORS.secondary}`}}>
             👥 {session ? solutori : yesterdaySolutori} risolto
@@ -301,7 +300,7 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
         <div style={{position:"absolute",top:-20,right:-20,fontSize:80,opacity:.06,transform:"rotate(15deg)"}}>🧩</div>
 
         {displayEnigma.media_url && (
-          <div style={{marginBottom:24, filter: session && state === "idle" ? "blur(20px)" : "none", transition:"filter .4s ease", pointerEvents: session && state === "idle" ? "none" : "auto"}}>
+          <div style={{marginBottom:24}}>
             {displayEnigma.media_tipo === "video"
               ? <video src={displayEnigma.media_url} controls style={{maxWidth:"100%",maxHeight:320,borderRadius:16,boxShadow:"0 4px 20px rgba(0,0,0,.4)"}} />
               : <img src={displayEnigma.media_url} alt="enigma" style={{maxWidth:"100%",maxHeight:320,borderRadius:16,objectFit:"contain",boxShadow:"0 4px 20px rgba(0,0,0,.4)"}} />
@@ -309,23 +308,9 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
           </div>
         )}
 
-        <div style={{position:"relative"}}>
-        <p style={{
-          fontSize:22, lineHeight:1.7, fontWeight:700, color:COLORS.text, maxWidth:600, margin:"0 auto",
-          filter: session && state === "idle" ? "blur(6px)" : "none",
-          userSelect: session && state === "idle" ? "none" : "auto",
-          transition: "filter .4s ease"
-        }}>
+        <p style={{fontSize:22,lineHeight:1.7,fontWeight:700,color:COLORS.text,maxWidth:600,margin:"0 auto"}}>
           "{displayEnigma.testo}"
         </p>
-        {session && state === "idle" && (
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <span style={{background:"#0F0F1A99",padding:"6px 16px",borderRadius:50,fontSize:13,color:COLORS.muted,fontWeight:700}}>
-              🔒 Premi "Inizia la sfida" per leggere
-            </span>
-          </div>
-        )}
-      </div>
         {displayEnigma.fonte && <div style={{marginTop:12,fontSize:12,color:COLORS.muted}}>fonte: {displayEnigma.fonte}</div>}
 
         {/* Istruzioni categoria */}
@@ -421,6 +406,24 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
       )}
 
       {/* Bottom row */}
+      {/* Campione di oggi */}
+      {campione && (
+        <div className="card fade-in" style={{marginBottom:16,background:`linear-gradient(135deg,#FFD70022,${COLORS.card})`,border:"2px solid #FFD70044",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{fontSize:36}}>⚡</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#FFD700",letterSpacing:1,marginBottom:2}}>PIÙ VELOCE DI OGGI</div>
+            <div style={{fontWeight:800,fontSize:16}}>
+              {campione.display_name}
+              {session?.user?.id === campione.id && <span style={{fontSize:11,background:COLORS.primary,color:"#fff",padding:"1px 8px",borderRadius:50,marginLeft:8}}>sei tu!</span>}
+            </div>
+            <div style={{fontSize:13,color:COLORS.muted,marginTop:2}}>
+              ha risolto in <strong style={{color:"#FFD700"}}>{campione.tempo_usato < 60 ? campione.tempo_usato+"s" : Math.floor(campione.tempo_usato/60)+"m "+campione.tempo_usato%60+"s"}</strong>
+            </div>
+          </div>
+          <div style={{fontSize:32}}>🥇</div>
+        </div>
+      )}
+
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
         <div className="card" style={{textAlign:"center"}}>
           <div style={{fontSize:12,fontWeight:700,color:COLORS.muted,marginBottom:8,letterSpacing:1}}>PROSSIMO ENIGMA TRA</div>
