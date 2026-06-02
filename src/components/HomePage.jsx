@@ -304,9 +304,23 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
           </div>
         )}
 
-        <p style={{fontSize:22,lineHeight:1.7,fontWeight:700,color:COLORS.text,maxWidth:600,margin:"0 auto"}}>
+        <div style={{position:"relative"}}>
+        <p style={{
+          fontSize:22, lineHeight:1.7, fontWeight:700, color:COLORS.text, maxWidth:600, margin:"0 auto",
+          filter: session && state === "idle" ? "blur(6px)" : "none",
+          userSelect: session && state === "idle" ? "none" : "auto",
+          transition: "filter .4s ease"
+        }}>
           "{displayEnigma.testo}"
         </p>
+        {session && state === "idle" && (
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{background:"#0F0F1A99",padding:"6px 16px",borderRadius:50,fontSize:13,color:COLORS.muted,fontWeight:700}}>
+              🔒 Premi "Inizia la sfida" per leggere
+            </span>
+          </div>
+        )}
+      </div>
         {displayEnigma.fonte && <div style={{marginTop:12,fontSize:12,color:COLORS.muted}}>fonte: {displayEnigma.fonte}</div>}
 
         {/* Istruzioni categoria */}
