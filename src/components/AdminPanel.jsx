@@ -188,7 +188,7 @@ export default function AdminPanel({ showToast, onConfigUpdate }) {
         supabase.from("difficolta_config").select("*").order("livello"),
         supabase.from("categorie_config").select("*"),
       ]);
-      setEnigmi(e||[]); setProfiles((p||[]).filter(u=>u.ruolo!=="admin"));
+      setEnigmi(e||[]); setProfiles(p||[]);
       const sm={}; (s||[]).forEach(r=>{sm[r.id]=r.solutori;}); setStats(sm);
       setTentativi(t||[]); setDiffConfig(dc||[]); setCatConfig(cc||[]);
     } catch(err) {
