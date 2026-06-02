@@ -208,6 +208,9 @@ export default function App() {
           {safePage === "profile" && session &&
             <ProfilePage profile={profile} session={session} onUpdate={handleUpdateProfile} showToast={showToast} />
           }
+          {safePage === "leaderboard" &&
+            <LeaderboardPage session={session} profile={profile} />
+          }
           {safePage === "admin" && isAdmin &&
             <AdminPanel showToast={showToast} onConfigUpdate={loadConfigs} />
           }
