@@ -34,17 +34,14 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   const loadProfile = async (userId) => {
-    const start = Date.now();
     try {
       const { data, error } = await Promise.race([
         supabase.from("profiles").select("*").eq("id", userId).limit(1),
         new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
       ]);
-      console.log("loadProfile ms:", Date.now() - start, data, error);
       if (data && data.length > 0) setProfile(data[0]);
       else setProfile({});
     } catch(err) {
-      console.log("loadProfile timeout dopo ms:", Date.now() - start);
       setProfile({});
     }
   };
@@ -73,16 +70,18 @@ export default function App() {
     }
   };
 
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
-      console.log("onAuthStateChange:", _event);
-      if (_event === "SIGNED_IN") return; // ignora, aspettiamo INITIAL_SESSION
+  useEffect(() => {
+    loadEnigmi();
+    loadConfigs();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      if (_event === "SIGNED_IN") return;
       if (_event === "INITIAL_SESSION") {
         setSession(sess);
         if (sess) await loadProfile(sess.user.id);
         else setSession(null);
         return;
       }
-      // logout e altri eventi
       setSession(sess);
       if (sess) await loadProfile(sess.user.id);
       else setProfile(null);
@@ -99,6 +98,8 @@ export default function App() {
   const handleLogin = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return showToast(error.message, "error");
+    await loadProfile(data.user.id);
+    setSession(data.session);
     showToast("Bentornato! 🎉", "success");
     setPage("home");
   };
@@ -112,6 +113,8 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
     setPage("home");
     showToast("Arrivederci! 👋", "info");
   };
