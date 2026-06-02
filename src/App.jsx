@@ -15,7 +15,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.error) return (
       <div style={{padding:40, color:"#EF4444", fontFamily:"monospace", background:"#0F0F1A", minHeight:"100vh"}}>
-        <h2>💥 Errore: {this.state.error}</h2>
+        <h2>Errore: {this.state.error}</h2>
         <p style={{marginTop:16, color:"#8888AA"}}>Apri la console (F12) per i dettagli</p>
       </div>
     );
@@ -66,26 +66,24 @@ export default function App() {
     loadEnigmi();
     loadConfigs();
 
-    // Controlla la sessione esistente al caricamento
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       if (sess) {
         setSession(sess);
         loadProfile(sess.user.id);
       } else {
-        setSession(null); // nessuna sessione, sblocca il loading
+        setSession(null);
       }
     });
 
-    // Ascolta i cambiamenti successivi (login, logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
-      if (_event === "INITIAL_SESSION") return; // già gestito da getSession
+      if (_event === "INITIAL_SESSION") return;
       setSession(sess);
-      if (sess) await loadProfile(sess.user.id);
-      else setProfile(null);
+      if (sess) {
+        await loadProfile(sess.user.id);
+      } else {
+        setProfile(null);
+      }
     });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
     return () => subscription.unsubscribe();
   }, []);
