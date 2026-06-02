@@ -296,7 +296,7 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
         <div style={{position:"absolute",top:-20,right:-20,fontSize:80,opacity:.06,transform:"rotate(15deg)"}}>🧩</div>
 
         {displayEnigma.media_url && (
-          <div style={{marginBottom:24}}>
+          <div style={{marginBottom:24, filter: session && state === "idle" ? "blur(12px)" : "none", transition:"filter .4s ease", pointerEvents: session && state === "idle" ? "none" : "auto"}}>
             {displayEnigma.media_tipo === "video"
               ? <video src={displayEnigma.media_url} controls style={{maxWidth:"100%",maxHeight:320,borderRadius:16,boxShadow:"0 4px 20px rgba(0,0,0,.4)"}} />
               : <img src={displayEnigma.media_url} alt="enigma" style={{maxWidth:"100%",maxHeight:320,borderRadius:16,objectFit:"contain",boxShadow:"0 4px 20px rgba(0,0,0,.4)"}} />
