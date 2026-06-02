@@ -7,6 +7,7 @@ import { LoginPage } from "./components/AuthPages";
 import { RegisterPage } from "./components/AuthPages";
 import ProfilePage from "./components/ProfilePage";
 import AdminPanel from "./components/AdminPanel";
+import LeaderboardPage from "./components/LeaderboardPage";
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
