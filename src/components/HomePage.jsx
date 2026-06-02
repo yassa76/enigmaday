@@ -163,7 +163,8 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
   const clearTimer = () => { if (timerRef.current) clearInterval(timerRef.current); };
 
   const startTimer = () => {
-    const cfg = diffConfig?.find(d => d.livello === enigma.difficolta);
+    //const cfg = diffConfig?.find(d => d.livello === enigma.difficolta);
+    const cfg = (diffConfig || []).find(d => d.livello === enigma?.difficolta);
     const secs = cfg?.secondi || 180;
     setTimerTotale(secs);
     setTimerSecondi(secs);
@@ -242,7 +243,8 @@ export default function HomePage({ enigma, yesterdayEnigma, session, profile, sh
     } catch { showToast("Errore condivisione","error"); }
   };
 
-  const istruzioni = catConfig?.find(c => c.categoria === (session ? enigma?.categoria : yesterdayEnigma?.categoria));
+  const istruzioni = (catConfig || []).find(c => c.categoria === (session ? enigma?.categoria : yesterdayEnigma?.categoria));
+  //const istruzioni = catConfig?.find(c => c.categoria === (session ? enigma?.categoria : yesterdayEnigma?.categoria));
   const streak = profile?.streak || 0;
   const streakLast = profile?.streak_last_date;
   const streakAtRisk = streakLast === getYesterdayStr() && streak > 0 && state === "idle";
