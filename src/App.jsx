@@ -73,22 +73,19 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    console.log("useEffect partito");
-    loadEnigmi();
-    loadConfigs();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
-      console.log("onAuthStateChange:", _event, sess);
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      console.log("onAuthStateChange:", _event);
+      if (_event === "SIGNED_IN") return; // ignora, aspettiamo INITIAL_SESSION
       if (_event === "INITIAL_SESSION") {
-  setSession(sess);
-  if (sess) await loadProfile(sess.user.id);
-  else setSession(null);
-  return;
-}
-setSession(sess);
-if (sess) await loadProfile(sess.user.id);
-else setProfile(null);
+        setSession(sess);
+        if (sess) await loadProfile(sess.user.id);
+        else setSession(null);
+        return;
+      }
+      // logout e altri eventi
+      setSession(sess);
+      if (sess) await loadProfile(sess.user.id);
+      else setProfile(null);
     });
 
     return () => subscription.unsubscribe();
